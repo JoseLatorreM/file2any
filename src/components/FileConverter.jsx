@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UploadCloud, File, X, Loader2, ArrowRight } from 'lucide-react';
@@ -9,6 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 // Importar las funciones de conversión PDF
 import { pdfToDocx, pdfToTxt, pdfToMarkdown, extractTextFromPDF } from '../lib/pdfConverters';
+// Importar las funciones de conversión DOCX
+import { docxToTxt, docxToMarkdown, docxToPdf, DOCX_CONVERSION_OPTIONS } from '../lib/docxConverters';
+// Importar las funciones de conversión XLSX
+import { xlsxToCsv, xlsxToJson, xlsxToXml, xlsxToPdf, XLSX_CONVERSION_OPTIONS } from '../lib/xlsxConverters';
+// Importar las funciones de conversión PPTX
+import { pptxToPdf, pptxToImages, pptxToTxt, PPTX_CONVERSION_OPTIONS } from '../lib/pptxConverters';
+// Importar las funciones de conversión CSV
+import { csvToXlsx, csvToPdf, csvToJson, csvToXml, CSV_CONVERSION_OPTIONS } from '../lib/csvConverters';
+// Importar las funciones de conversión JSON
+import { jsonToCsv, jsonToXlsx, jsonToXml, JSON_CONVERSION_OPTIONS } from '../lib/jsonConverters';
+// Importar las funciones de conversión XML
+import { xmlToCsv, xmlToXlsx, xmlToJson, XML_CONVERSION_OPTIONS } from '../lib/xmlConverters';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -36,7 +47,7 @@ const FileConverter = () => {
     event.preventDefault();
     event.stopPropagation();
   }, []);
-
+  
   const handleConvert = async () => {
     if (!file || !outputFormat) {
       toast({
@@ -55,22 +66,161 @@ const FileConverter = () => {
     try {
       let blob = null;
       let url = null;
+      const fileName = file.name.toLowerCase();
+      
       // PDF → TXT
-      if (file.name.toLowerCase().endsWith('.pdf') && outputFormat === 'TXT') {
+      if (fileName.endsWith('.pdf') && outputFormat === 'TXT') {
         const pdfContent = await extractTextFromPDF(file);
         blob = await pdfToTxt(pdfContent);
         url = URL.createObjectURL(blob);
       }
       // PDF → DOCX
-      else if (file.name.toLowerCase().endsWith('.pdf') && outputFormat === 'DOCX') {
+      else if (fileName.endsWith('.pdf') && outputFormat === 'DOCX') {
         const pdfContent = await extractTextFromPDF(file);
         blob = await pdfToDocx(pdfContent);
         url = URL.createObjectURL(blob);
       }
       // PDF → MD
-      else if (file.name.toLowerCase().endsWith('.pdf') && (outputFormat === 'MD' || outputFormat === 'MARKDOWN')) {
+      else if (fileName.endsWith('.pdf') && (outputFormat === 'MD' || outputFormat === 'MARKDOWN')) {
         const pdfContent = await extractTextFromPDF(file);
         blob = await pdfToMarkdown(pdfContent);
+        url = URL.createObjectURL(blob);
+      }
+      // DOCX → TXT
+      else if (fileName.endsWith('.docx') && outputFormat === 'TXT') {
+        blob = await docxToTxt(file);
+        url = URL.createObjectURL(blob);
+      }
+      // DOCX → MD
+      else if (fileName.endsWith('.docx') && (outputFormat === 'MD' || outputFormat === 'MARKDOWN')) {
+        blob = await docxToMarkdown(file);
+        url = URL.createObjectURL(blob);
+      }
+      // DOCX → PDF
+      else if (fileName.endsWith('.docx') && outputFormat === 'PDF') {
+        blob = await docxToPdf(file);
+        url = URL.createObjectURL(blob);
+      }
+      // XLSX → CSV
+      else if ((fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) && outputFormat === 'CSV') {
+        blob = await xlsxToCsv(file);
+        url = URL.createObjectURL(blob);
+      }
+      // XLSX → JSON
+      else if ((fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) && outputFormat === 'JSON') {
+        blob = await xlsxToJson(file);
+        url = URL.createObjectURL(blob);
+      }
+      // XLSX → XML
+      else if ((fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) && outputFormat === 'XML') {
+        blob = await xlsxToXml(file);
+        url = URL.createObjectURL(blob);
+      }
+      // XLSX → PDF
+      else if ((fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) && outputFormat === 'PDF') {
+        blob = await xlsxToPdf(file);
+        url = URL.createObjectURL(blob);
+      }
+
+      // PPTX → PDF
+      else if (fileName.endsWith('.pptx') && outputFormat === 'PDF') {
+        blob = await pptxToPdf(file);
+        url = URL.createObjectURL(blob);
+      }
+      // PPTX → PNG
+      else if (fileName.endsWith('.pptx') && outputFormat === 'PNG') {
+        const blobs = await pptxToImages(file, 'png');
+        // Descargar cada imagen
+        blobs.forEach((imgBlob, idx) => {
+          const imgUrl = URL.createObjectURL(imgBlob);
+          const link = document.createElement('a');
+          link.href = imgUrl;
+          link.download = `${file.name.replace(/\.pptx$/i, '')}_slide${idx + 1}.png`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(imgUrl), 1000);
+        });
+        toast({
+          title: '¡Conversión exitosa!',
+          description: `Las diapositivas PNG han sido descargadas.`,
+        });
+        setIsConverting(false);
+        return;
+      }
+      // PPTX → JPG
+      else if (fileName.endsWith('.pptx') && outputFormat === 'JPG') {
+        const blobs = await pptxToImages(file, 'jpg');
+        blobs.forEach((imgBlob, idx) => {
+          const imgUrl = URL.createObjectURL(imgBlob);
+          const link = document.createElement('a');
+          link.href = imgUrl;
+          link.download = `${file.name.replace(/\.pptx$/i, '')}_slide${idx + 1}.jpg`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(imgUrl), 1000);
+        });
+        toast({
+          title: '¡Conversión exitosa!',
+          description: `Las diapositivas JPG han sido descargadas.`,
+        });
+        setIsConverting(false);
+        return;
+      }
+      // PPTX → TXT
+      else if (fileName.endsWith('.pptx') && outputFormat === 'TXT') {
+        blob = await pptxToTxt(file);
+        url = URL.createObjectURL(blob);
+      }
+      // CSV → XLSX
+      else if (fileName.endsWith('.csv') && outputFormat === 'XLSX') {
+        blob = await csvToXlsx(file);
+        url = URL.createObjectURL(blob);
+      }
+      // CSV → PDF
+      else if (fileName.endsWith('.csv') && outputFormat === 'PDF') {
+        blob = await csvToPdf(file);
+        url = URL.createObjectURL(blob);
+      }
+      // CSV → JSON
+      else if (fileName.endsWith('.csv') && outputFormat === 'JSON') {
+        blob = await csvToJson(file);
+        url = URL.createObjectURL(blob);
+      }
+      // CSV → XML
+      else if (fileName.endsWith('.csv') && outputFormat === 'XML') {
+        blob = await csvToXml(file);
+        url = URL.createObjectURL(blob);
+      }
+      // JSON → CSV
+      else if (fileName.endsWith('.json') && outputFormat === 'CSV') {
+        blob = await jsonToCsv(file);
+        url = URL.createObjectURL(blob);
+      }
+      // JSON → XLSX
+      else if (fileName.endsWith('.json') && outputFormat === 'XLSX') {
+        blob = await jsonToXlsx(file);
+        url = URL.createObjectURL(blob);
+      }
+      // JSON → XML
+      else if (fileName.endsWith('.json') && outputFormat === 'XML') {
+        blob = await jsonToXml(file);
+        url = URL.createObjectURL(blob);
+      }
+      // XML → CSV
+      else if (fileName.endsWith('.xml') && outputFormat === 'CSV') {
+        blob = await xmlToCsv(file);
+        url = URL.createObjectURL(blob);
+      }
+      // XML → XLSX
+      else if (fileName.endsWith('.xml') && outputFormat === 'XLSX') {
+        blob = await xmlToXlsx(file);
+        url = URL.createObjectURL(blob);
+      }
+      // XML → JSON
+      else if (fileName.endsWith('.xml') && outputFormat === 'JSON') {
+        blob = await xmlToJson(file);
         url = URL.createObjectURL(blob);
       }
       // No implementado
@@ -79,7 +229,13 @@ const FileConverter = () => {
       }
 
       // Descargar el archivo convertido
-      const downloadName = file.name.replace(/\.pdf$/i, `.${outputFormat.toLowerCase()}`);
+      let fileExtension = '';
+      if (fileName.endsWith('.pdf')) fileExtension = '.pdf';
+      else if (fileName.endsWith('.docx')) fileExtension = '.docx';
+      else if (fileName.endsWith('.xlsx')) fileExtension = '.xlsx';
+      else if (fileName.endsWith('.xls')) fileExtension = '.xls';
+      
+      const downloadName = file.name.replace(new RegExp(fileExtension + '$', 'i'), `.${outputFormat.toLowerCase()}`);
       const link = document.createElement('a');
       link.href = url;
       link.download = downloadName;
@@ -111,12 +267,33 @@ const FileConverter = () => {
   };
 
 
-  // Opciones de conversión para PDF centralizadas en pdfConverters.js
+  // Opciones de conversión para cada formato centralizadas en sus módulos
+
   const PDF_CONVERSION_OPTIONS = ['DOCX', 'TXT', 'MD'];
+
+  // Opciones de conversión para PPTX
+  const PPTX_CONVERSION_OPTIONS = ['PDF', 'PNG', 'JPG', 'TXT'];
+
+  // Opciones de conversión para CSV
+  const CSV_CONVERSION_OPTIONS = ['XLSX', 'PDF', 'JSON', 'XML'];
+
+  // Opciones de conversión para JSON
+  const JSON_CONVERSION_OPTIONS = ['CSV', 'XLSX', 'XML'];
+
+  // Opciones de conversión para XML
+  const XML_CONVERSION_OPTIONS = ['CSV', 'XLSX', 'JSON'];
+
 
   const getFileType = () => {
     if (!file) return [];
-    if (file.name.toLowerCase().endsWith('.pdf')) return PDF_CONVERSION_OPTIONS;
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.pdf')) return PDF_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.docx')) return DOCX_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) return XLSX_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.pptx')) return PPTX_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.csv')) return CSV_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.json')) return JSON_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.xml')) return XML_CONVERSION_OPTIONS;
     return [];
   }
 
@@ -151,11 +328,18 @@ const FileConverter = () => {
                   onDragOver={handleDragOver}
                   onClick={() => document.getElementById('file-upload')?.click()}
                 >
-                  <input id="file-upload" type="file" className="hidden" onChange={handleFileChange} />
+                  <input 
+                    id="file-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept=".pdf,.docx,.xlsx,.xls,.pptx,.csv,.json,.xml"
+                    onChange={handleFileChange} 
+                  />
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <UploadCloud className="h-12 w-12" />
                     <p className="font-semibold">Arrastra y suelta tu archivo aquí</p>
                     <p className="text-sm">o haz clic para seleccionar</p>
+                    <p className="text-xs text-gray-500">Soporta: PDF, DOCX, XLSX, CSV, JSON, XML</p>
                   </div>
                 </div>
               </motion.div>
