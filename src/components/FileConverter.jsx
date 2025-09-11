@@ -27,6 +27,13 @@ import {
   getConversionOptions as getImageConversionOptions,
   manipulateImage
 } from '../lib/imageConverters';
+// Importar las funciones de conversión de audio
+import {
+  convertAudio,
+  getAudioType,
+  getConversionOptions as getAudioConversionOptions,
+  AUDIO_CONVERSION_OPTIONS
+} from '../lib/audioConverters';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -40,7 +47,25 @@ const FileConverter = () => {
     grayscale: false,
     removeMetadata: true
   });
+  const [audioOptions, setAudioOptions] = useState({
+    bitrate: 192,
+    sampleRate: 44100,
+    channels: 2,
+    normalize: false
+  });
   const { toast } = useToast();
+
+  // Verificar si es un archivo de imagen
+  const isImage = file && (
+    file.type.includes('image') || 
+    file.name.toLowerCase().match(/\.(jpe?g|png|gif|webp|bmp|svg)$/)
+  );
+  
+  // Verificar si es un archivo de audio
+  const isAudio = file && (
+    file.type.includes('audio') || 
+    file.name.toLowerCase().match(/\.(mp3|wav|ogg|flac|aac|m4a|opus|wma|aiff)$/)
+  );
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -74,13 +99,12 @@ const FileConverter = () => {
     }
     setIsConverting(true);
     
-    // Preparar mensaje de toast según el tipo de archivo
-    const isImage = file.type.includes('image') || file.name.toLowerCase().match(/\.(jpe?g|png|gif|webp|bmp|svg)$/);
-    
     toast({
       title: 'Procesando...',
       description: isImage 
-        ? `Convirtiendo imagen a ${outputFormat}${imageOptions.resize ? ' y redimensionando' : ''}...` 
+        ? `Convirtiendo imagen a ${outputFormat}${imageOptions.resize ? ' y redimensionando' : ''}...`
+        : isAudio
+        ? `Convirtiendo audio a ${outputFormat}${audioOptions.normalize ? ' y normalizando' : ''}...`
         : `Convirtiendo ${file.name} a ${outputFormat}...`,
     });
 
@@ -280,6 +304,52 @@ const FileConverter = () => {
           throw new Error(`Error al convertir imagen: ${error.message}`);
         }
       }
+      // Conversión de audio
+      else if (
+        (fileName.endsWith('.mp3') || fileName.endsWith('.wav') || 
+         fileName.endsWith('.flac') || fileName.endsWith('.aac') || 
+         fileName.endsWith('.ogg') || fileName.endsWith('.opus') || 
+         fileName.endsWith('.m4a') || fileName.endsWith('.wma') || 
+         fileName.endsWith('.aiff'))
+      ) {
+        try {
+          // Preparar opciones para la conversión de audio
+          const conversionOptions = {
+            bitrate: audioOptions.bitrate,
+            sampleRate: audioOptions.sampleRate,
+            channels: audioOptions.channels,
+            normalize: audioOptions.normalize
+          };
+          
+          // Mostrar toast específico para cada formato
+          const formatMessages = {
+            'mp3': 'Comprimiendo con codificación MP3...',
+            'ogg': 'Comprimiendo con codificación OGG Vorbis...',
+            'm4a': 'Comprimiendo con codificación AAC/M4A...',
+            'aac': 'Comprimiendo con codificación AAC...',
+            'flac': 'Comprimiendo con codificación FLAC sin pérdida...',
+            'wav': 'Convirtiendo a formato WAV sin compresión...'
+          };
+          
+          toast({
+            title: 'Procesando audio',
+            description: formatMessages[outputFormat.toLowerCase()] || 'Procesando conversión de audio...'
+          });
+          
+          // Usar la función real de conversión de audio
+          blob = await convertAudio(file, outputFormat.toLowerCase(), conversionOptions);
+          url = URL.createObjectURL(blob);
+        } catch (error) {
+          console.error('Error en conversión de audio:', error);
+          toast({
+            title: 'Error en la conversión',
+            description: `No se pudo procesar el archivo de audio: ${error.message}`,
+            variant: 'destructive',
+          });
+          setIsConverting(false);
+          return;
+        }
+      }
       // PDF → Imagen (PNG/JPG)
       else if (fileName.endsWith('.pdf') && (outputFormat === 'PNG' || outputFormat === 'JPG')) {
         const format = outputFormat.toLowerCase();
@@ -318,6 +388,9 @@ const FileConverter = () => {
 
       // Descargar el archivo convertido
       let fileExtension = '';
+      let targetExtension = '';
+      
+      // Detectar extensión original
       if (fileName.endsWith('.pdf')) fileExtension = '.pdf';
       else if (fileName.endsWith('.docx')) fileExtension = '.docx';
       else if (fileName.endsWith('.xlsx')) fileExtension = '.xlsx';
@@ -328,8 +401,46 @@ const FileConverter = () => {
       else if (fileName.endsWith('.webp')) fileExtension = '.webp';
       else if (fileName.endsWith('.bmp')) fileExtension = '.bmp';
       else if (fileName.endsWith('.svg')) fileExtension = '.svg';
+      // Extensiones de audio
+      else if (fileName.endsWith('.mp3')) fileExtension = '.mp3';
+      else if (fileName.endsWith('.wav')) fileExtension = '.wav';
+      else if (fileName.endsWith('.flac')) fileExtension = '.flac';
+      else if (fileName.endsWith('.aac')) fileExtension = '.aac';
+      else if (fileName.endsWith('.ogg')) fileExtension = '.ogg';
+      else if (fileName.endsWith('.opus')) fileExtension = '.opus';
+      else if (fileName.endsWith('.m4a')) fileExtension = '.m4a';
+      else if (fileName.endsWith('.wma')) fileExtension = '.wma';
+      else if (fileName.endsWith('.aiff')) fileExtension = '.aiff';
       
-      const downloadName = file.name.replace(new RegExp(fileExtension + '$', 'i'), `.${outputFormat.toLowerCase()}`);
+      // Determinar extensión objetivo con mapeo correcto
+      const formatExtensionMap = {
+        'wav': '.wav',
+        'mp3': '.mp3',
+        'ogg': '.ogg',
+        'm4a': '.m4a',
+        'aac': '.aac',
+        'flac': '.flac',
+        'opus': '.opus',
+        'wma': '.wma',
+        'aiff': '.aiff',
+        'png': '.png',
+        'jpg': '.jpg',
+        'jpeg': '.jpg',
+        'gif': '.gif',
+        'webp': '.webp',
+        'bmp': '.bmp',
+        'svg': '.svg',
+        'pdf': '.pdf',
+        'docx': '.docx',
+        'xlsx': '.xlsx',
+        'xml': '.xml',
+        'json': '.json',
+        'csv': '.csv'
+      };
+      
+      targetExtension = formatExtensionMap[outputFormat.toLowerCase()] || `.${outputFormat.toLowerCase()}`;
+      
+      const downloadName = file.name.replace(new RegExp(fileExtension + '$', 'i'), targetExtension);
       const link = document.createElement('a');
       link.href = url;
       link.download = downloadName;
@@ -341,9 +452,24 @@ const FileConverter = () => {
         blob = null;
       }, 1000);
 
+      // Calcular información sobre el archivo
+      const originalSize = file.size;
+      const newSize = blob?.size || 0;
+      const compressionRatio = originalSize > 0 ? ((originalSize - newSize) / originalSize * 100).toFixed(1) : 0;
+      
+      // Mensaje personalizado según el formato
+      let successMessage = `El archivo ${downloadName} ha sido descargado.`;
+      if (isAudio && newSize > 0 && originalSize !== newSize) {
+        if (newSize < originalSize) {
+          successMessage = `Archivo comprimido y descargado. Reducción: ${compressionRatio}% (${(originalSize/1024/1024).toFixed(1)}MB → ${(newSize/1024/1024).toFixed(1)}MB)`;
+        } else {
+          successMessage = `Archivo convertido y descargado. Tamaño: ${(newSize/1024/1024).toFixed(1)}MB`;
+        }
+      }
+
       toast({
         title: '¡Conversión exitosa!',
-        description: `El archivo ${downloadName} ha sido descargado.`,
+        description: successMessage,
       });
     } catch (err) {
       toast({
@@ -366,6 +492,13 @@ const FileConverter = () => {
       height: null,
       grayscale: false,
       removeMetadata: true
+    });
+    // Resetear opciones de audio a valores predeterminados
+    setAudioOptions({
+      bitrate: 192,
+      sampleRate: 44100,
+      channels: 2,
+      normalize: false
     });
   };
 
@@ -396,6 +529,19 @@ const FileConverter = () => {
     bmp: ['PNG', 'JPG', 'WEBP', 'GIF'],
     svg: ['PNG', 'JPG', 'PDF']
   };
+  
+  // Opciones de conversión para audio
+  const AUDIO_CONVERSION_OPTIONS = {
+    mp3: ['WAV', 'OGG', 'M4A', 'AAC'],
+    wav: ['MP3', 'FLAC', 'OGG', 'M4A', 'AAC', 'AIFF'],
+    flac: ['MP3', 'WAV', 'OGG', 'M4A', 'AAC'],
+    aac: ['MP3', 'WAV', 'OGG', 'M4A'],
+    ogg: ['MP3', 'WAV', 'M4A', 'AAC'],
+    opus: ['MP3', 'WAV', 'OGG', 'M4A', 'AAC'],
+    m4a: ['MP3', 'WAV', 'OGG', 'AAC'],
+    wma: ['MP3', 'WAV', 'OGG', 'M4A'],
+    aiff: ['MP3', 'WAV', 'FLAC', 'M4A']
+  };
 
 
   const getFileType = () => {
@@ -419,6 +565,19 @@ const FileConverter = () => {
       // Usar la función getConversionOptions del módulo imageConverters
       const imgType = getImageType(file);
       return getImageConversionOptions(imgType);
+    }
+    
+    // Detectar formatos de audio
+    if (
+      fileName.endsWith('.mp3') || fileName.endsWith('.wav') ||
+      fileName.endsWith('.flac') || fileName.endsWith('.aac') ||
+      fileName.endsWith('.ogg') || fileName.endsWith('.opus') ||
+      fileName.endsWith('.m4a') || fileName.endsWith('.wma') ||
+      fileName.endsWith('.aiff')
+    ) {
+      // Usar la función getConversionOptions del módulo audioConverters
+      const audioType = getAudioType(file);
+      return getAudioConversionOptions(audioType);
     }
     
     return [];
@@ -459,14 +618,14 @@ const FileConverter = () => {
                     id="file-upload" 
                     type="file" 
                     className="hidden" 
-                    accept=".pdf,.docx,.xlsx,.xls,.pptx,.csv,.json,.xml,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.tiff,.avif,.ico,.heif"
+                    accept=".pdf,.docx,.xlsx,.xls,.pptx,.csv,.json,.xml,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.tiff,.avif,.ico,.heif,.mp3,.wav,.flac,.aac,.ogg,.opus,.m4a,.wma,.aiff"
                     onChange={handleFileChange} 
                   />
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <UploadCloud className="h-12 w-12" />
                     <p className="font-semibold">Arrastra y suelta tu archivo aquí</p>
                     <p className="text-sm">o haz clic para seleccionar</p>
-                    <p className="text-xs text-gray-500">Soporta: PDF, DOCX, XLSX, CSV, JSON, XML y formatos de imagen (JPG, PNG, GIF, WEBP, SVG, BMP)</p>
+                    <p className="text-xs text-muted-foreground mt-2">Soporta: PDF, DOCX, XLSX, CSV, JSON, XML, imágenes (JPG, PNG, etc) y audio (MP3, WAV, etc)</p>
                   </div>
                 </div>
               </motion.div>
@@ -510,9 +669,7 @@ const FileConverter = () => {
                 </motion.div>
                 
                 {/* Mostrar opciones de imagen si se ha seleccionado una imagen */}
-                {file && outputFormat && (
-                  file.type.includes('image') || file.name.toLowerCase().match(/\.(jpe?g|png|gif|webp|bmp|svg)$/)
-                ) && (
+                {file && outputFormat && isImage && (
                   <motion.div
                     className="w-full mt-4 bg-secondary/50 p-4 rounded-lg shadow-inner"
                     initial={{ opacity: 0, y: 10 }}
@@ -630,6 +787,118 @@ const FileConverter = () => {
                               className="mr-2"
                             />
                             <span>Eliminar metadatos</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                
+                {/* Mostrar opciones de audio si se ha seleccionado un audio */}
+                {file && outputFormat && isAudio && (
+                  <motion.div
+                    className="w-full mt-4 bg-secondary/50 p-4 rounded-lg shadow-inner"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.4 }}
+                  >
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="font-medium text-sm">Opciones de audio:</p>
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <svg className="h-3 w-3 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4L14 8H19L15 11L16 15L12 13L8 15L9 11L5 8H10L12 4Z" stroke="currentColor" strokeWidth="2" />
+                            <path d="M9 17C9 17.7956 9.31607 18.5587 9.87868 19.1213C10.4413 19.6839 11.2044 20 12 20C12.7956 20 13.5587 19.6839 14.1213 19.1213C14.6839 18.5587 15 17.7956 15 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                          <span>{file.name}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Bitrate (para formatos lossy) */}
+                      {(outputFormat === 'MP3' || outputFormat === 'AAC' || outputFormat === 'OGG') && (
+                        <div className="mb-4">
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-xs text-muted-foreground">
+                              Bitrate
+                            </label>
+                            <span className="text-xs font-medium">{audioOptions.bitrate} kbps</span>
+                          </div>
+                          <select
+                            value={audioOptions.bitrate}
+                            onChange={(e) => setAudioOptions({
+                              ...audioOptions,
+                              bitrate: parseInt(e.target.value)
+                            })}
+                            className="w-full p-2 text-sm bg-background border rounded"
+                          >
+                            <option value="128">128 kbps</option>
+                            <option value="192">192 kbps</option>
+                            <option value="256">256 kbps</option>
+                            <option value="320">320 kbps</option>
+                          </select>
+                        </div>
+                      )}
+                      
+                      {/* Tasa de muestreo */}
+                      <div className="mb-4">
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs text-muted-foreground">
+                            Tasa de muestreo
+                          </label>
+                          <span className="text-xs font-medium">{audioOptions.sampleRate / 1000} kHz</span>
+                        </div>
+                        <select
+                          value={audioOptions.sampleRate}
+                          onChange={(e) => setAudioOptions({
+                            ...audioOptions,
+                            sampleRate: parseInt(e.target.value)
+                          })}
+                          className="w-full p-2 text-sm bg-background border rounded"
+                        >
+                          <option value="44100">44.1 kHz (estándar CD)</option>
+                          <option value="48000">48 kHz (profesional)</option>
+                          <option value="96000">96 kHz (alta definición)</option>
+                        </select>
+                      </div>
+                      
+                      {/* Canales */}
+                      <div className="mb-4">
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs text-muted-foreground">
+                            Canales
+                          </label>
+                          <span className="text-xs font-medium">{audioOptions.channels === 1 ? 'Mono' : 'Estéreo'}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setAudioOptions({...audioOptions, channels: 2})}
+                            className={`w-1/2 py-1 rounded text-sm border ${audioOptions.channels === 2 ? 'bg-primary text-white' : 'bg-background'}`}
+                          >
+                            Estéreo
+                          </button>
+                          <button
+                            onClick={() => setAudioOptions({...audioOptions, channels: 1})}
+                            className={`w-1/2 py-1 rounded text-sm border ${audioOptions.channels === 1 ? 'bg-primary text-white' : 'bg-background'}`}
+                          >
+                            Mono
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Opciones adicionales */}
+                      <div className="grid grid-cols-1 gap-2">
+                        <div className="bg-background/50 p-2 rounded border border-border/50">
+                          <label className="flex items-center text-xs">
+                            <input 
+                              type="checkbox"
+                              checked={audioOptions.normalize}
+                              onChange={(e) => setAudioOptions({
+                                ...audioOptions,
+                                normalize: e.target.checked
+                              })}
+                              className="mr-2"
+                            />
+                            <span>Normalizar volumen</span>
                           </label>
                         </div>
                       </div>
