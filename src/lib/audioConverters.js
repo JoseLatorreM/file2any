@@ -1,7 +1,7 @@
 /**
  * Audio Converters Module
  * 
- * Este módulo maneja toda la funcionalidad de conversión de audio para File2Any.
+ * Este módulo maneja toda la funcionalidad de conversión de audio para Files2Any.
  * Soporta conversión entre diversos formatos de audio, ajustes de calidad y propiedades.
  */
 

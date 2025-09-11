@@ -7,7 +7,7 @@ import { useToast } from './ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 // Importar las funciones de conversión PDF
-import { pdfToDocx, pdfToTxt, pdfToMarkdown, extractTextFromPDF } from '../lib/pdfConverters';
+import { pdfToDocx, pdfToTxt, pdfToMarkdown } from '../lib/pdfConverters';
 // Importar las funciones de conversión DOCX
 import { docxToTxt, docxToMarkdown, docxToPdf, DOCX_CONVERSION_OPTIONS } from '../lib/docxConverters';
 // Importar las funciones de conversión XLSX
@@ -115,20 +115,20 @@ const FileConverter = () => {
       
       // PDF → TXT
       if (fileName.endsWith('.pdf') && outputFormat === 'TXT') {
-        const pdfContent = await extractTextFromPDF(file);
-        blob = await pdfToTxt(pdfContent);
+        console.log('Convirtiendo PDF a TXT con preservación de estructura...');
+        blob = await pdfToTxt(file);
         url = URL.createObjectURL(blob);
       }
       // PDF → DOCX
       else if (fileName.endsWith('.pdf') && outputFormat === 'DOCX') {
-        const pdfContent = await extractTextFromPDF(file);
-        blob = await pdfToDocx(pdfContent);
+        console.log('Convirtiendo PDF a DOCX con preservación de formato...');
+        blob = await pdfToDocx(file);
         url = URL.createObjectURL(blob);
       }
       // PDF → MD
       else if (fileName.endsWith('.pdf') && (outputFormat === 'MD' || outputFormat === 'MARKDOWN')) {
-        const pdfContent = await extractTextFromPDF(file);
-        blob = await pdfToMarkdown(pdfContent);
+        console.log('Convirtiendo PDF a Markdown con preservación de estructura...');
+        blob = await pdfToMarkdown(file);
         url = URL.createObjectURL(blob);
       }
       // DOCX → TXT

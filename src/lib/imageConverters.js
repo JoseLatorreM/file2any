@@ -1,7 +1,7 @@
 /**
  * Image Converters Module
  * 
- * This module handles all image conversion functionality for File2Any.
+ * This module handles all image conversion functionality for Files2Any.
  * It supports conversion between various image formats, resizing, quality adjustment,
  * and metadata operations.
  */

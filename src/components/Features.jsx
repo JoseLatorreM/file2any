@@ -42,7 +42,7 @@ const Features = () => {
     <section id="features" className="py-20 bg-secondary/50 dark:bg-secondary/20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">¿Por qué File2Any?</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">¿Por qué Files2Any?</h2>
           <p className="mt-4 text-lg text-muted-foreground">La solución definitiva para todas tus necesidades de conversión de archivos.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

@@ -148,37 +148,6 @@ function convertHtmlToStructuredText(html) {
           }
           break;
           
-        case 'table':
-          result += '\n\n[TABLA]\n';
-          result += '=' .repeat(50) + '\n';
-          
-          const tableRows = node.querySelectorAll('tr');
-          tableRows.forEach((row, rowIndex) => {
-            const cells = row.querySelectorAll('td, th');
-            let rowText = '';
-            
-            cells.forEach((cell, cellIndex) => {
-              const cellContent = cell.textContent.trim();
-              rowText += cellContent;
-              if (cellIndex < cells.length - 1) {
-                rowText += ' | ';
-              }
-            });
-            
-            // Marcar encabezados
-            if (rowIndex === 0 || row.querySelectorAll('th').length > 0) {
-              result += '*** ' + rowText + ' ***\n';
-              if (rowIndex === 0 && tableRows.length > 1) {
-                result += '-'.repeat(Math.min(rowText.length + 8, 50)) + '\n';
-              }
-            } else {
-              result += rowText + '\n';
-            }
-          });
-          
-          result += '=' .repeat(50) + '\n\n';
-          break;
-          
         default:
           for (const child of node.childNodes) {
             processNode(child, level);
@@ -231,28 +200,16 @@ export async function docxToMarkdown(file) {
         "p[style-name='Quote'] => blockquote:fresh",
         "p[style-name='Caption'] => p.caption:fresh",
         
-        // Tablas con mejor mapeo
-        "table => table:fresh",
-        "tr => tr:fresh",
-        "td => td:fresh",
-        "th => th:fresh"
+        // Tablas
+        "table => table",
+        "tr => tr",
+        "td => td",
+        "th => th"
       ],
       
-      // Configuraciones adicionales para tablas
+      // Configuraciones adicionales
       includeEmbeddedStyleMap: true,
-      includeDefaultStyleMap: true,
-      
-      // Transformaciones personalizadas para preservar estructura de tabla
-      transformDocument: function(element) {
-        if (element.type === "table") {
-          return {
-            ...element,
-            // Preservar propiedades de tabla
-            properties: element.properties || {}
-          };
-        }
-        return element;
-      }
+      includeDefaultStyleMap: true
     };
     
     const result = await mammoth.convertToHtml({ arrayBuffer, options });
@@ -462,63 +419,32 @@ function convertHtmlToMarkdown(html) {
     const rows = table.querySelectorAll('tr');
     if (rows.length === 0) return;
     
-    // Determinar el número máximo de columnas
-    let maxColumns = 0;
-    rows.forEach(row => {
-      const cells = row.querySelectorAll('td, th');
-      maxColumns = Math.max(maxColumns, cells.length);
-    });
-    
-    // Procesar encabezados (primera fila)
+    // Procesar encabezados
     const headerRow = rows[0];
     const headers = headerRow.querySelectorAll('th, td');
     
-    markdown += '\n| ';
-    for (let i = 0; i < maxColumns; i++) {
-      const header = headers[i];
-      const cellText = header ? header.textContent.trim() : '';
-      markdown += cellText + ' | ';
-    }
+    markdown += '| ';
+    headers.forEach(header => {
+      markdown += header.textContent.trim() + ' | ';
+    });
     markdown += '\n';
     
     // Línea separadora
     markdown += '|';
-    for (let i = 0; i < maxColumns; i++) {
+    headers.forEach(() => {
       markdown += ' --- |';
-    }
+    });
     markdown += '\n';
     
     // Procesar filas de datos
     for (let i = 1; i < rows.length; i++) {
       const cells = rows[i].querySelectorAll('td, th');
       markdown += '| ';
-      
-      for (let j = 0; j < maxColumns; j++) {
-        const cell = cells[j];
-        let cellText = '';
-        
-        if (cell) {
-          // Preservar formato básico dentro de las celdas
-          cellText = cell.innerHTML
-            .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
-            .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
-            .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
-            .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
-            .replace(/<br\s*\/?>/gi, ' ')
-            .replace(/<[^>]*>/g, '') // Remover otras etiquetas HTML
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .trim();
-        }
-        
-        markdown += cellText + ' | ';
-      }
+      cells.forEach(cell => {
+        markdown += cell.textContent.trim() + ' | ';
+      });
       markdown += '\n';
     }
-    markdown += '\n';
   }
   
   processNode(doc.body);
@@ -672,35 +598,19 @@ export async function docxToPdf(file) {
           break;
           
         case 'table':
-          // Procesar tablas en PDF
+          // Procesamiento básico de tablas
           y += 6;
-          const tableRows = element.querySelectorAll('tr');
-          
-          if (tableRows.length > 0) {
-            // Agregar título de tabla
-            addTextToPdf('[TABLA]', 10, 'bold');
-            y += 3;
-            
-            tableRows.forEach((row, rowIndex) => {
-              const cells = row.querySelectorAll('td, th');
-              let rowText = '';
-              
-              cells.forEach((cell, cellIndex) => {
-                const cellContent = cell.textContent.trim();
-                rowText += cellContent;
-                if (cellIndex < cells.length - 1) rowText += ' | ';
-              });
-              
-              // Encabezados en negrita
-              const isHeader = rowIndex === 0 || row.querySelectorAll('th').length > 0;
-              addTextToPdf(rowText, 10, isHeader ? 'bold' : 'normal', 5);
-              
-              // Línea separadora después del encabezado
-              if (rowIndex === 0 && tableRows.length > 1) {
-                addTextToPdf('─'.repeat(Math.min(rowText.length, 50)), 8, 'normal', 5);
-              }
+          addTextToPdf('[TABLA - Ver archivo original para formato completo]', 10, 'italic');
+          const rows = element.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cells = row.querySelectorAll('td, th');
+            let rowText = '';
+            cells.forEach((cell, index) => {
+              rowText += cell.textContent.trim();
+              if (index < cells.length - 1) rowText += ' | ';
             });
-          }
+            addTextToPdf(rowText, 10, 'normal', 5);
+          });
           y += 6;
           break;
           

@@ -20,10 +20,10 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
             <FileTerminal className="h-7 w-7 text-primary" />
-            <span className="text-lg font-bold">File2Any</span>
+            <span className="text-lg font-bold">Files2Any</span>
           </div>
           <p className="text-sm text-muted-foreground text-center">
-            © {currentYear} File2Any. Todos los derechos reservados. <br/> Una herramienta simple, segura y gratuita para todos.
+            © {currentYear} Files2Any. Todos los derechos reservados. <br/> Una herramienta simple, segura y gratuita para todos.
           </p>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={handleGithubClick}>

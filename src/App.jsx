@@ -29,8 +29,8 @@ function App() {
   return (
     <>
       <Helmet>
-        <title>File2Any - Conversor de Archivos Gratuito y Seguro</title>
-        <meta name="description" content="Convierte documentos, imágenes, audio y video de forma rápida y segura. File2Any es tu herramienta de conversión online gratuita, sin anuncios y sin registro." />
+        <title>Files2Any - Conversor de Archivos Gratuito y Seguro</title>
+        <meta name="description" content="Convierte documentos, imágenes, audio y video de forma rápida y segura. Files2Any es tu herramienta de conversión online gratuita, sin anuncios y sin registro." />
       </Helmet>
       
       <AnimatePresence>
@@ -43,7 +43,7 @@ function App() {
           >
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-lg font-medium text-muted-foreground">Cargando File2Any...</p>
+              <p className="text-lg font-medium text-muted-foreground">Cargando Files2Any...</p>
             </div>
           </motion.div>
         )}

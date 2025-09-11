@@ -32,7 +32,7 @@ const Roadmap = () => {
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Nuestro Roadmap</h2>
-          <p className="mt-4 text-lg text-muted-foreground">El futuro de File2Any es brillante y estamos trabajando para mejorarlo.</p>
+          <p className="mt-4 text-lg text-muted-foreground">El futuro de Files2Any es brillante y estamos trabajando para mejorarlo.</p>
         </div>
         <div className="relative">
           <div className="absolute left-1/2 h-full w-0.5 bg-border -translate-x-1/2 hidden md:block"></div>

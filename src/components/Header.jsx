@@ -20,7 +20,7 @@ const Header = ({ theme, setTheme }) => {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
           <FileTerminal className="h-8 w-8 text-primary" />
-          <span className="text-xl font-bold">File2Any</span>
+          <span className="text-xl font-bold">Files2Any</span>
         </div>
         <Button onClick={toggleTheme} variant="ghost" size="icon">
           <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
