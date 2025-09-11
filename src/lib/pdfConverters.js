@@ -17,6 +17,50 @@ export function initPDFJS() {
   return true;
 }
 
+/**
+ * Convierte un PDF a imágenes (PNG o JPEG)
+ * @param {File} file - Archivo PDF
+ * @param {string} format - Formato de salida ('png' o 'jpg')
+ * @param {Object} options - Opciones adicionales como escala
+ * @returns {Promise<Blob[]>} - Array de blobs, uno por cada página
+ */
+export async function pdfToImages(file, format = 'png', options = {}) {
+  const { scale = 2.0 } = options;
+  initPDFJS();
+  
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  const numPages = pdf.numPages;
+  const blobs = [];
+  
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport
+    }).promise;
+    
+    // Convertir canvas a blob
+    const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+    const quality = format === 'jpg' ? 0.92 : undefined;
+    
+    const blob = await new Promise(resolve => {
+      canvas.toBlob(blob => resolve(blob), mimeType, quality);
+    });
+    
+    blobs.push(blob);
+  }
+  
+  return blobs;
+}
+
 // Extrae texto estructurado de un PDF
 export async function extractTextFromPDF(file) {
   initPDFJS();
