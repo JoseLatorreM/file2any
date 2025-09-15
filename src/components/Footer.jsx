@@ -10,7 +10,7 @@ const Footer = () => {
   const handleGithubClick = () => {
     toast({
       title: '¡Función no implementada!',
-      description: "🚧 Esta característica aún no está implementada, ¡pero no te preocupes! Puedes solicitarla en tu próximo prompt. 🚀",
+      description: "Esta característica aún no está implementada",
     });
   };
 
