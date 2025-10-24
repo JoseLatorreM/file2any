@@ -2,8 +2,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
-// Configurar el worker de PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Configurar el worker de PDF.js usando CDN para evitar bloqueo de Hostinger
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 /**
  * Extrae texto estructurado de PDF con información de posicionamiento y formato

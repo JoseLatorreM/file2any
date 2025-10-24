@@ -5,11 +5,8 @@ import { resolve } from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/',
   resolve: {
-    alias: {
-      // Asegurarse de que PDF.js se cargue correctamente
-      'pdfjs-dist': resolve(__dirname, 'node_modules/pdfjs-dist'),
-    },
     // Manejar extensiones .mjs
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
   },
@@ -25,6 +22,21 @@ export default defineConfig({
     fs: {
       // Permitir servir archivos desde node_modules
       allow: ['..', 'node_modules'],
+    },
+  },
+  build: {
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: [
+            'react',
+            'react-dom',
+            'mammoth',
+            'docx',
+          ]
+        }
+      },
     },
   },
 });
