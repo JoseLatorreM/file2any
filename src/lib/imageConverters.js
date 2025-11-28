@@ -159,9 +159,9 @@ export const imageToJpeg = async (file, options = {}) => {
   
   const img = await createImageFromFile(file);
   
-  // Calculate dimensions if provided as percentage
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = createCanvasFromImage(img, {
     width: targetWidth,
@@ -188,9 +188,9 @@ export const imageToPng = async (file, options = {}) => {
   
   const img = await createImageFromFile(file);
   
-  // Calculate dimensions if provided as percentage
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = createCanvasFromImage(img, {
     width: targetWidth,
@@ -217,9 +217,9 @@ export const imageToWebp = async (file, options = {}) => {
   
   const img = await createImageFromFile(file);
   
-  // Calculate dimensions if provided as percentage
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = createCanvasFromImage(img, {
     width: targetWidth,
@@ -246,9 +246,9 @@ export const imageToGif = async (file, options = {}) => {
   
   const img = await createImageFromFile(file);
   
-  // Calculate dimensions if provided as percentage
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = createCanvasFromImage(img, {
     width: targetWidth,
@@ -276,9 +276,9 @@ export const imageToBmp = async (file, options = {}) => {
   
   const img = await createImageFromFile(file);
   
-  // Calculate dimensions if provided as percentage
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = createCanvasFromImage(img, {
     width: targetWidth,
@@ -305,9 +305,9 @@ export const imageToPdf = async (file, options = {}) => {
   
   const img = await createImageFromFile(file);
   
-  // Calculate dimensions if provided as percentage
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = createCanvasFromImage(img, {
     width: targetWidth,
@@ -357,9 +357,9 @@ export const svgToPng = async (file, options = {}) => {
   
   URL.revokeObjectURL(url);
   
-  // Calculate dimensions
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
@@ -392,9 +392,9 @@ export const svgToJpeg = async (file, options = {}) => {
   
   URL.revokeObjectURL(url);
   
-  // Calculate dimensions
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
@@ -414,7 +414,7 @@ export const svgToJpeg = async (file, options = {}) => {
  * @returns {Promise<Blob>} - A promise that resolves to a Blob in PDF format
  */
 export const svgToPdf = async (file, options = {}) => {
-  const { width, height } = options;
+  const { quality = 0.92, width, height } = options;
   
   const text = await file.text();
   const blob = new Blob([text], { type: 'image/svg+xml' });
@@ -429,9 +429,9 @@ export const svgToPdf = async (file, options = {}) => {
   
   URL.revokeObjectURL(url);
   
-  // Calculate dimensions
-  const targetWidth = width?.endsWith('%') ? (parseInt(width) / 100) * img.width : width || img.width;
-  const targetHeight = height?.endsWith('%') ? (parseInt(height) / 100) * img.height : height || img.height;
+  // Calculate dimensions - handle both number and string (percentage) inputs
+  const targetWidth = width ? (typeof width === 'string' && width.endsWith('%') ? (parseInt(width) / 100) * img.width : parseInt(width)) : img.width;
+  const targetHeight = height ? (typeof height === 'string' && height.endsWith('%') ? (parseInt(height) / 100) * img.height : parseInt(height)) : img.height;
   
   const pdf = new jsPDF({
     orientation: targetWidth > targetHeight ? 'landscape' : 'portrait',
@@ -659,5 +659,165 @@ export const manipulateImage = {
   applyFilter: async (file, filterOptions) => {
     const sourceType = getImageType(file);
     return convertImage(file, sourceType, filterOptions);
+  }
+};
+
+/**
+ * Parse dimension string (e.g., "1000x1000", "800x600")
+ * @param {string} dimensionStr - Dimension string in format "widthxheight"
+ * @returns {Object} - Object with width and height properties
+ */
+export const parseDimensions = (dimensionStr) => {
+  if (!dimensionStr || typeof dimensionStr !== 'string') {
+    return { width: null, height: null };
+  }
+  
+  const cleaned = dimensionStr.toLowerCase().trim().replace(/\s+/g, '');
+  const match = cleaned.match(/^(\d+)x(\d+)$/);
+  
+  if (!match) {
+    throw new Error('Formato de dimensiones inválido. Use el formato: ancho x alto (ej: 1000x1000)');
+  }
+  
+  const width = parseInt(match[1], 10);
+  const height = parseInt(match[2], 10);
+  
+  if (width <= 0 || width > 10000 || height <= 0 || height > 10000) {
+    throw new Error('Las dimensiones deben estar entre 1 y 10000 píxeles');
+  }
+  
+  return { width, height };
+};
+
+/**
+ * Process multiple images in batch with the same settings
+ * @param {FileList|Array<File>} files - Array of image files to process
+ * @param {Object} options - Processing options
+ * @returns {Promise<Array>} - Array of processed image blobs with metadata
+ */
+export const batchProcessImages = async (files, options = {}) => {
+  const {
+    format = 'webp',
+    dimensionStr = null,
+    quality = 0.92,
+    compress = true,
+    removeMetadata: removeMeta = true,
+    maxFiles = 400
+  } = options;
+  
+  // Convert FileList to Array if needed
+  const fileArray = Array.from(files);
+  
+  // Validate file count
+  if (fileArray.length === 0) {
+    throw new Error('No se han seleccionado archivos');
+  }
+  
+  if (fileArray.length > maxFiles) {
+    throw new Error(`Se permite un máximo de ${maxFiles} imágenes. Tienes ${fileArray.length} archivos.`);
+  }
+  
+  // Validate all files are images
+  const imageFiles = fileArray.filter(file => {
+    const isImageType = file.type.startsWith('image/') || 
+                       file.name.match(/\.(jpe?g|png|gif|webp|bmp|svg)$/i);
+    return isImageType;
+  });
+  
+  if (imageFiles.length === 0) {
+    throw new Error('No se encontraron imágenes válidas en la selección');
+  }
+  
+  if (imageFiles.length < fileArray.length) {
+    console.warn(`Se ignoraron ${fileArray.length - imageFiles.length} archivos que no son imágenes`);
+  }
+  
+  // Parse dimensions if provided
+  let dimensions = { width: null, height: null };
+  if (dimensionStr) {
+    dimensions = parseDimensions(dimensionStr);
+  }
+  
+  // Process all images
+  const results = [];
+  const errors = [];
+  
+  for (let i = 0; i < imageFiles.length; i++) {
+    const file = imageFiles[i];
+    
+    try {
+      // Prepare conversion options
+      const conversionOptions = {
+        quality,
+        removeMetadata: removeMeta,
+        ...dimensions
+      };
+      
+      // Convert the image
+      const blob = await convertImage(file, format, conversionOptions);
+      
+      // Get file extension from original name
+      const originalName = file.name.replace(/\.[^/.]+$/, '');
+      const newFileName = `${originalName}.${format}`;
+      
+      results.push({
+        blob,
+        fileName: newFileName,
+        originalFileName: file.name,
+        size: blob.size,
+        index: i
+      });
+      
+    } catch (error) {
+      console.error(`Error procesando ${file.name}:`, error);
+      errors.push({
+        fileName: file.name,
+        error: error.message,
+        index: i
+      });
+    }
+  }
+  
+  return {
+    results,
+    errors,
+    totalProcessed: results.length,
+    totalErrors: errors.length,
+    totalFiles: imageFiles.length
+  };
+};
+
+/**
+ * Create a ZIP file from processed images
+ * @param {Array} processedImages - Array of processed image objects
+ * @param {string} zipFileName - Name for the ZIP file
+ * @returns {Promise<Blob>} - ZIP file blob
+ */
+export const createImageZip = async (processedImages, zipFileName = 'images.zip') => {
+  // We'll use JSZip library for this - need to install it
+  // For now, return a simple implementation that downloads files individually
+  // In production, you should install jszip package
+  
+  try {
+    // Check if JSZip is available
+    if (typeof window.JSZip === 'undefined') {
+      throw new Error('JSZip library not available. Images will be downloaded individually.');
+    }
+    
+    const JSZip = window.JSZip;
+    const zip = new JSZip();
+    
+    // Add each image to the zip
+    for (const img of processedImages) {
+      zip.file(img.fileName, img.blob);
+    }
+    
+    // Generate zip file
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    return zipBlob;
+    
+  } catch (error) {
+    console.error('Error creating ZIP:', error);
+    throw error;
   }
 };

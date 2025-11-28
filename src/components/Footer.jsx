@@ -9,9 +9,9 @@ const Footer = () => {
 
   const handleGithubClick = () => {
     toast({
-      title: '¡Función no implementada!',
-      description: "Esta característica aún no está implementada",
+      title: 'Redirigiendo a GitHub',
     });
+    window.open('https://github.com/JoseLatorreM/file2any', '_blank');
   };
 
   return (

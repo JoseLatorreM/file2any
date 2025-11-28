@@ -23,6 +23,13 @@ export default defineConfig({
       // Permitir servir archivos desde node_modules
       allow: ['..', 'node_modules'],
     },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   build: {
     chunkSizeWarningLimit: 2000,

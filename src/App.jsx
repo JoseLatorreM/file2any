@@ -3,16 +3,19 @@ import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import FileConverter from './components/FileConverter';
+import BatchImageConverter from './components/BatchImageConverter';
+import YouTubeDownloader from './components/YouTubeDownloader';
 import Features from './components/Features';
 import SupportedFormats from './components/SupportedFormats';
 import Roadmap from './components/Roadmap';
 import Footer from './components/Footer';
 import { Toaster } from './components/ui/toaster';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileText, Image, Youtube } from 'lucide-react';
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('single'); // 'single', 'batch', or 'youtube'
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -53,7 +56,83 @@ function App() {
         <div className={`min-h-screen bg-background font-sans antialiased ${theme}`}>
           <Header theme={theme} setTheme={setTheme} />
           <main>
-            <FileConverter />
+            {/* Tabs for switching between single and batch conversion */}
+            <section className="py-12 px-4 sm:px-6 lg:px-8">
+              <div className="max-w-6xl mx-auto">
+                <div className="flex justify-center mb-8">
+                  <div className="inline-flex rounded-lg bg-muted p-1 shadow-md">
+                    <button
+                      onClick={() => setActiveTab('single')}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-all ${
+                        activeTab === 'single'
+                          ? 'bg-background text-primary shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <FileText className="w-5 h-5" />
+                      Conversión Individual
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('batch')}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-all ${
+                        activeTab === 'batch'
+                          ? 'bg-background text-primary shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Image className="w-5 h-5" />
+                      Conversión por Lotes
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('youtube')}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-all ${
+                        activeTab === 'youtube'
+                          ? 'bg-background text-primary shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Youtube className="w-5 h-5" />
+                      YouTube Downloader
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content based on active tab */}
+                <AnimatePresence mode="wait">
+                  {activeTab === 'single' ? (
+                    <motion.div
+                      key="single"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <FileConverter />
+                    </motion.div>
+                  ) : activeTab === 'batch' ? (
+                    <motion.div
+                      key="batch"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <BatchImageConverter />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="youtube"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <YouTubeDownloader />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </section>
             <Features />
             <SupportedFormats />
             <Roadmap />
