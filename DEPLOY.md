@@ -12,10 +12,21 @@
 1. Ve a [render.com](https://render.com)
 2. Regístrate con tu cuenta de GitHub
 
-### 1.2 Crear el servicio
-1. Haz clic en **"New +"** → **"Web Service"**
+### 1.2 IMPORTANTE: Sube los cambios a GitHub
+Antes de crear el servicio en Render, asegúrate de que todos los archivos estén en GitHub:
+
+```bash
+git add .
+git commit -m "Configuración para Render.com"
+git push origin main
+```
+
+### 1.3 Crear el servicio en Render
+1. En Render.com, haz clic en **"New +"** → **"Web Service"**
 2. Conecta tu repositorio de GitHub (`file2any`)
-3. Configura:
+3. Render debería detectar automáticamente el archivo `render.yaml`
+
+**SI NO DETECTA EL ARCHIVO**, configura manualmente:
    - **Name**: `file2any-api`
    - **Region**: Oregon (US West) o el más cercano
    - **Branch**: `main`
@@ -23,14 +34,26 @@
    - **Runtime**: `Docker`
    - **Instance Type**: `Free`
 
-### 1.3 Variables de entorno (opcional)
-En la sección "Environment", agrega:
-- `FRONTEND_URL` = `https://files2any.com`
+### 1.4 Variables de entorno
+En la sección "Environment", verifica que estén:
+- `NODE_ENV` = `production` (ya configurado en render.yaml)
+- `FRONTEND_URL` = `https://files2any.com` (ya configurado en render.yaml)
 
-### 1.4 Desplegar
-Haz clic en **"Create Web Service"**
+### 1.5 Desplegar
+1. Haz clic en **"Create Web Service"**
+2. Render comenzará a construir tu aplicación (tarda 5-10 minutos la primera vez)
+3. Cuando termine, te dará una URL como: `https://file2any-api.onrender.com`
 
-Render te dará una URL como: `https://file2any-api.onrender.com`
+### 1.6 Verificar que funciona
+Abre en tu navegador (reemplaza con tu URL real):
+```
+https://TU-URL-DE-RENDER.onrender.com/health
+```
+
+Deberías ver:
+```json
+{"status":"ok","message":"Servidor funcionando correctamente"}
+```
 
 ---
 
