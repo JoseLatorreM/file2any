@@ -84,27 +84,45 @@ app.post('/api/youtube/info', async (req, res) => {
     console.log('Obteniendo información del video:', url);
 
     // Estrategia anti-bot mejorada para YouTube
-    // Usar múltiples clientes y opciones para evitar bloqueos
-    const ytdlpCmd = [
-      'yt-dlp',
+    // Usar spawn para evitar problemas de escape en shell
+    const ytdlpArgs = [
       '--no-warnings',
       '--skip-download',
       '--print-json',
       '--no-playlist',
-      // Usar cliente de iOS (funciona mejor que Android últimamente)
       '--extractor-args', 'youtube:player_client=ios,web',
-      // Headers para simular navegador real
       '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-      // Opciones adicionales para evitar rate limiting
       '--sleep-requests', '1',
       '--no-check-certificates',
       url
     ];
+
+    const ytdlp = spawn('yt-dlp', ytdlpArgs);
     
-    const { stdout, stderr } = await execAsync(
-      ytdlpCmd.join(' '),
-      { maxBuffer: 10 * 1024 * 1024 }
-    );
+    let stdout = '';
+    let stderr = '';
+
+    ytdlp.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    ytdlp.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    await new Promise((resolve, reject) => {
+      ytdlp.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`yt-dlp failed with code ${code}: ${stderr}`));
+        } else {
+          resolve();
+        }
+      });
+      
+      ytdlp.on('error', (error) => {
+        reject(error);
+      });
+    });
     
     if (stderr) {
       console.error('yt-dlp stderr:', stderr);
