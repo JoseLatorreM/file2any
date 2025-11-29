@@ -84,8 +84,22 @@ app.post('/api/youtube/info', async (req, res) => {
     console.log('Obteniendo información del video:', url);
 
     // Usar yt-dlp para obtener información del video - OPTIMIZADO para velocidad
+    // Agregar opciones para evitar detección de bot por YouTube
+    const ytdlpCmd = [
+      'yt-dlp',
+      '--no-warnings',
+      '--skip-download',
+      '--print-json',
+      '--no-playlist',
+      '--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"',
+      '--add-header "Accept-Language:en-US,en;q=0.9"',
+      '--add-header "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"',
+      '--extractor-args "youtube:player_client=android"',
+      `"${url}"`
+    ].join(' ');
+    
     const { stdout, stderr } = await execAsync(
-      `yt-dlp --no-warnings --skip-download --print-json --no-playlist "${url}"`,
+      ytdlpCmd,
       { maxBuffer: 10 * 1024 * 1024 }
     );
     
@@ -153,6 +167,9 @@ app.post('/api/youtube/download', async (req, res) => {
         '--no-playlist',
         '--no-warnings',
         '--no-check-certificates',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '--add-header', 'Accept-Language:en-US,en;q=0.9',
+        '--extractor-args', 'youtube:player_client=android',
         url
       ];
       expectedFile = finalFileAudio;
@@ -177,6 +194,9 @@ app.post('/api/youtube/download', async (req, res) => {
         '--no-playlist',
         '--no-warnings',
         '--no-check-certificates',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '--add-header', 'Accept-Language:en-US,en;q=0.9',
+        '--extractor-args', 'youtube:player_client=android',
         url
       ];
     }
