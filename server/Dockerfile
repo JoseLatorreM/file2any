@@ -6,11 +6,14 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     ffmpeg \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar yt-dlp (se actualiza automáticamente)
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
+# Instalar yt-dlp usando pip (más confiable que el binario)
+RUN pip3 install --no-cache-dir --break-system-packages yt-dlp
+
+# Verificar que yt-dlp está instalado correctamente
+RUN yt-dlp --version
 
 # Crear directorio de trabajo
 WORKDIR /app

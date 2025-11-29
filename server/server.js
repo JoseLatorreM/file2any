@@ -81,11 +81,18 @@ app.post('/api/youtube/info', async (req, res) => {
       return res.status(400).json({ error: 'URL de YouTube inválida' });
     }
 
+    console.log('Obteniendo información del video:', url);
+
     // Usar yt-dlp para obtener información del video - OPTIMIZADO para velocidad
-    const { stdout } = await execAsync(
+    const { stdout, stderr } = await execAsync(
       `yt-dlp --no-warnings --skip-download --print-json --no-playlist "${url}"`,
       { maxBuffer: 10 * 1024 * 1024 }
     );
+    
+    if (stderr) {
+      console.error('yt-dlp stderr:', stderr);
+    }
+    
     const videoData = JSON.parse(stdout);
 
     const videoInfo = {
@@ -97,12 +104,15 @@ app.post('/api/youtube/info', async (req, res) => {
       viewCount: videoData.view_count
     };
 
+    console.log('Información obtenida exitosamente:', videoInfo.title);
     res.json(videoInfo);
   } catch (error) {
-    console.error('Error al obtener información del video:', error);
+    console.error('Error completo al obtener información del video:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       error: 'Error al obtener información del video',
-      details: error.message 
+      details: error.message,
+      stderr: error.stderr || 'No stderr disponible'
     });
   }
 });
