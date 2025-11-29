@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar yt-dlp usando pip (más confiable que el binario)
-RUN pip3 install --no-cache-dir --break-system-packages yt-dlp
+# Instalar la versión más reciente para mejor soporte anti-bot
+RUN pip3 install --no-cache-dir --break-system-packages -U yt-dlp
 
 # Verificar que yt-dlp está instalado correctamente
 RUN yt-dlp --version
