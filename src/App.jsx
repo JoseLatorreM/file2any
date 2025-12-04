@@ -4,18 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import FileConverter from './components/FileConverter';
 import BatchImageConverter from './components/BatchImageConverter';
-import YouTubeDownloader from './components/YouTubeDownloader';
+// import YouTubeDownloader from './components/YouTubeDownloader'; // Deshabilitado temporalmente - YouTube bloquea IPs de datacenter
 import Features from './components/Features';
 import SupportedFormats from './components/SupportedFormats';
 import Roadmap from './components/Roadmap';
 import Footer from './components/Footer';
 import { Toaster } from './components/ui/toaster';
-import { Loader2, FileText, Image, Youtube } from 'lucide-react';
+import { Loader2, FileText, Image } from 'lucide-react';
+// import { Youtube } from 'lucide-react'; // Deshabilitado temporalmente
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('single'); // 'single', 'batch', or 'youtube'
+  const [activeTab, setActiveTab] = useState('single'); // 'single' or 'batch' (youtube deshabilitado)
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -83,6 +84,7 @@ function App() {
                       <Image className="w-5 h-5" />
                       Conversión por Lotes
                     </button>
+                    {/* YouTube Downloader deshabilitado temporalmente - YouTube bloquea IPs de datacenter
                     <button
                       onClick={() => setActiveTab('youtube')}
                       className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-all ${
@@ -94,6 +96,7 @@ function App() {
                       <Youtube className="w-5 h-5" />
                       YouTube Downloader
                     </button>
+                    */}
                   </div>
                 </div>
 
@@ -119,6 +122,8 @@ function App() {
                     >
                       <BatchImageConverter />
                     </motion.div>
+                  ) : null}
+                  {/* YouTube Downloader deshabilitado temporalmente
                   ) : (
                     <motion.div
                       key="youtube"
@@ -130,6 +135,7 @@ function App() {
                       <YouTubeDownloader />
                     </motion.div>
                   )}
+                  */}
                 </AnimatePresence>
               </div>
             </section>
