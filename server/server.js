@@ -83,21 +83,23 @@ app.post('/api/youtube/info', async (req, res) => {
 
     console.log('Obteniendo información del video:', url);
 
-    // Estrategia anti-bot mejorada para YouTube
-    // Usar spawn para evitar problemas de escape en shell
+    // Estrategia anti-bot mejorada - usar cookies y múltiples clientes
     const ytdlpArgs = [
       '--no-warnings',
       '--skip-download',
       '--print-json',
       '--no-playlist',
-      '--extractor-args', 'youtube:player_client=ios,web',
-      '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-      '--sleep-requests', '1',
+      '--extractor-args', 'youtube:player_client=android_embedded',
       '--no-check-certificates',
+      '--socket-timeout', '30',
+      '--retries', '3',
+      '--geo-bypass',
       url
     ];
 
-    const ytdlp = spawn('yt-dlp', ytdlpArgs);
+    const ytdlp = spawn('yt-dlp', ytdlpArgs, {
+      timeout: 60000 // 60 segundos timeout
+    });
     
     let stdout = '';
     let stderr = '';
@@ -108,18 +110,28 @@ app.post('/api/youtube/info', async (req, res) => {
 
     ytdlp.stderr.on('data', (data) => {
       stderr += data.toString();
+      console.log('yt-dlp:', data.toString());
     });
+
+    // Timeout manual de 45 segundos
+    const timeoutId = setTimeout(() => {
+      ytdlp.kill('SIGTERM');
+    }, 45000);
 
     await new Promise((resolve, reject) => {
       ytdlp.on('close', (code) => {
-        if (code !== 0) {
-          reject(new Error(`yt-dlp failed with code ${code}: ${stderr}`));
+        clearTimeout(timeoutId);
+        if (code !== 0 && code !== null) {
+          reject(new Error(`yt-dlp falló (código ${code}): ${stderr}`));
+        } else if (!stdout.trim()) {
+          reject(new Error('No se recibió respuesta de yt-dlp'));
         } else {
           resolve();
         }
       });
       
       ytdlp.on('error', (error) => {
+        clearTimeout(timeoutId);
         reject(error);
       });
     });
@@ -173,6 +185,17 @@ app.post('/api/youtube/download', async (req, res) => {
     const finalFile = path.join(downloadsDir, `${timestamp}.mp4`);
     const finalFileAudio = path.join(downloadsDir, `${timestamp}.mp3`);
 
+    // Opciones comunes anti-bot
+    const commonArgs = [
+      '--no-playlist',
+      '--no-warnings',
+      '--no-check-certificates',
+      '--extractor-args', 'youtube:player_client=android_embedded',
+      '--socket-timeout', '30',
+      '--retries', '3',
+      '--geo-bypass',
+    ];
+
     // Construir comando yt-dlp
     let ytdlpArgs = [];
     let expectedFile = finalFile;
@@ -185,22 +208,15 @@ app.post('/api/youtube/download', async (req, res) => {
         '--audio-format', 'mp3',
         '--audio-quality', '0',
         '-o', outputFile,
-        '--no-playlist',
-        '--no-warnings',
-        '--no-check-certificates',
-        '--extractor-args', 'youtube:player_client=ios,web',
-        '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        '--sleep-requests', '1',
+        ...commonArgs,
         url
       ];
       expectedFile = finalFileAudio;
     } else {
-      // Video con audio - IMPORTANTE: usar formato que YA tenga video+audio cuando sea posible
-      // Si no, descargar por separado y fusionar con ffmpeg
+      // Video con audio
       let formatString;
       
       if (quality === 'highest') {
-        // Preferir formatos pre-mezclados, si no, descargar mejor video + mejor audio
         formatString = 'bv*+ba/b';
       } else {
         const height = quality.replace('p', '');
@@ -210,14 +226,8 @@ app.post('/api/youtube/download', async (req, res) => {
       ytdlpArgs = [
         '-f', formatString,
         '--merge-output-format', 'mp4',
-        '--postprocessor-args', 'ffmpeg:-c:v copy -c:a aac -b:a 192k',
         '-o', outputFile,
-        '--no-playlist',
-        '--no-warnings',
-        '--no-check-certificates',
-        '--extractor-args', 'youtube:player_client=ios,web',
-        '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        '--sleep-requests', '1',
+        ...commonArgs,
         url
       ];
     }
