@@ -58,43 +58,43 @@ function App() {
           <Header theme={theme} setTheme={setTheme} />
           <main>
             {/* Tabs for switching between single and batch conversion */}
-            <section className="py-12 px-4 sm:px-6 lg:px-8">
+            <section className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
               <div className="max-w-6xl mx-auto">
                 <div className="flex justify-center mb-8">
-                  <div className="inline-flex rounded-lg bg-muted p-1 shadow-md">
+                  <div className="inline-flex flex-col sm:flex-row rounded-lg bg-muted p-1 shadow-md w-full sm:w-auto max-w-sm sm:max-w-none">
                     <button
                       onClick={() => setActiveTab('single')}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-all ${
+                      className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-md font-medium transition-all text-sm sm:text-base ${
                         activeTab === 'single'
                           ? 'bg-background text-primary shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <FileText className="w-5 h-5" />
-                      Conversión Individual
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="whitespace-nowrap">Conversión Individual</span>
                     </button>
                     <button
                       onClick={() => setActiveTab('batch')}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-all ${
+                      className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-md font-medium transition-all text-sm sm:text-base ${
                         activeTab === 'batch'
                           ? 'bg-background text-primary shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <Image className="w-5 h-5" />
-                      Conversión por Lotes
+                      <Image className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="whitespace-nowrap">Conversión por Lotes</span>
                     </button>
                     {/* YouTube Downloader deshabilitado temporalmente - YouTube bloquea IPs de datacenter
                     <button
                       onClick={() => setActiveTab('youtube')}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-md font-medium transition-all ${
+                      className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-md font-medium transition-all text-sm sm:text-base ${
                         activeTab === 'youtube'
                           ? 'bg-background text-primary shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <Youtube className="w-5 h-5" />
-                      YouTube Downloader
+                      <Youtube className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="whitespace-nowrap">YouTube Downloader</span>
                     </button>
                     */}
                   </div>

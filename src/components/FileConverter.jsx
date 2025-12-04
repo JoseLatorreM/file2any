@@ -34,6 +34,14 @@ import {
   getConversionOptions as getAudioConversionOptions,
   AUDIO_CONVERSION_OPTIONS
 } from '../lib/audioConverters';
+// Importar las funciones de conversión de modelos 3D
+import {
+  convertModel3D,
+  isModel3DFile,
+  getModel3DType,
+  getModel3DConversionOptions,
+  MODEL_3D_CONVERSION_OPTIONS
+} from '../lib/model3dConverters';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -66,6 +74,9 @@ const FileConverter = () => {
     file.type.includes('audio') || 
     file.name.toLowerCase().match(/\.(mp3|wav|ogg|flac|aac|m4a|opus|wma|aiff)$/)
   );
+
+  // Verificar si es un archivo de modelo 3D
+  const isModel3D = file && isModel3DFile(file);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -381,6 +392,27 @@ const FileConverter = () => {
           throw new Error('No se pudo convertir el PDF a imagen.');
         }
       }
+      // Conversión de modelos 3D (OBJ ↔ STL)
+      else if (fileName.endsWith('.obj') || fileName.endsWith('.stl')) {
+        try {
+          toast({
+            title: 'Procesando modelo 3D',
+            description: `Convirtiendo a ${outputFormat}...`
+          });
+          
+          blob = await convertModel3D(file, outputFormat.toLowerCase());
+          url = URL.createObjectURL(blob);
+        } catch (error) {
+          console.error('Error en conversión de modelo 3D:', error);
+          toast({
+            title: 'Error en la conversión',
+            description: `No se pudo convertir el modelo 3D: ${error.message}`,
+            variant: 'destructive',
+          });
+          setIsConverting(false);
+          return;
+        }
+      }
       // No implementado
       else {
         throw new Error('Conversión no implementada para este formato.');
@@ -411,6 +443,9 @@ const FileConverter = () => {
       else if (fileName.endsWith('.m4a')) fileExtension = '.m4a';
       else if (fileName.endsWith('.wma')) fileExtension = '.wma';
       else if (fileName.endsWith('.aiff')) fileExtension = '.aiff';
+      // Extensiones de modelos 3D
+      else if (fileName.endsWith('.obj')) fileExtension = '.obj';
+      else if (fileName.endsWith('.stl')) fileExtension = '.stl';
       
       // Determinar extensión objetivo con mapeo correcto
       const formatExtensionMap = {
@@ -435,7 +470,9 @@ const FileConverter = () => {
         'xlsx': '.xlsx',
         'xml': '.xml',
         'json': '.json',
-        'csv': '.csv'
+        'csv': '.csv',
+        'obj': '.obj',
+        'stl': '.stl'
       };
       
       targetExtension = formatExtensionMap[outputFormat.toLowerCase()] || `.${outputFormat.toLowerCase()}`;
@@ -543,6 +580,12 @@ const FileConverter = () => {
     aiff: ['MP3', 'WAV', 'FLAC', 'M4A']
   };
 
+  // Opciones de conversión para modelos 3D
+  const MODEL_3D_OPTIONS = {
+    obj: ['STL'],
+    stl: ['OBJ']
+  };
+
 
   const getFileType = () => {
     if (!file) return [];
@@ -578,6 +621,12 @@ const FileConverter = () => {
       // Usar la función getConversionOptions del módulo audioConverters
       const audioType = getAudioType(file);
       return getAudioConversionOptions(audioType);
+    }
+    
+    // Detectar formatos de modelos 3D
+    if (fileName.endsWith('.obj') || fileName.endsWith('.stl')) {
+      const ext = fileName.split('.').pop();
+      return MODEL_3D_OPTIONS[ext] || [];
     }
     
     return [];
