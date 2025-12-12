@@ -61,6 +61,9 @@ const FileConverter = () => {
     channels: 2,
     normalize: false
   });
+  const [model3DOptions, setModel3DOptions] = useState({
+    optimization: 'normal' // 'normal', 'optimized', 'performance'
+  });
   const { toast } = useToast();
 
   // Verificar si es un archivo de imagen
@@ -392,15 +395,19 @@ const FileConverter = () => {
           throw new Error('No se pudo convertir el PDF a imagen.');
         }
       }
-      // Conversión de modelos 3D (OBJ ↔ STL)
-      else if (fileName.endsWith('.obj') || fileName.endsWith('.stl')) {
+      // Conversión de modelos 3D (OBJ, STL, 3MF, AMF)
+      else if (fileName.endsWith('.obj') || fileName.endsWith('.stl') || 
+               fileName.endsWith('.3mf') || fileName.endsWith('.amf')) {
         try {
+          const inputFormat = fileName.split('.').pop().toUpperCase();
           toast({
             title: 'Procesando modelo 3D',
-            description: `Convirtiendo a ${outputFormat}...`
+            description: `Convirtiendo ${inputFormat} a ${outputFormat}...`
           });
           
-          blob = await convertModel3D(file, outputFormat.toLowerCase());
+          blob = await convertModel3D(file, outputFormat.toLowerCase(), {
+            optimization: model3DOptions.optimization
+          });
           url = URL.createObjectURL(blob);
         } catch (error) {
           console.error('Error en conversión de modelo 3D:', error);
@@ -446,6 +453,8 @@ const FileConverter = () => {
       // Extensiones de modelos 3D
       else if (fileName.endsWith('.obj')) fileExtension = '.obj';
       else if (fileName.endsWith('.stl')) fileExtension = '.stl';
+      else if (fileName.endsWith('.3mf')) fileExtension = '.3mf';
+      else if (fileName.endsWith('.amf')) fileExtension = '.amf';
       
       // Determinar extensión objetivo con mapeo correcto
       const formatExtensionMap = {
@@ -472,7 +481,9 @@ const FileConverter = () => {
         'json': '.json',
         'csv': '.csv',
         'obj': '.obj',
-        'stl': '.stl'
+        'stl': '.stl',
+        '3mf': '.3mf',
+        'amf': '.amf'
       };
       
       targetExtension = formatExtensionMap[outputFormat.toLowerCase()] || `.${outputFormat.toLowerCase()}`;
@@ -582,8 +593,10 @@ const FileConverter = () => {
 
   // Opciones de conversión para modelos 3D
   const MODEL_3D_OPTIONS = {
-    obj: ['STL'],
-    stl: ['OBJ']
+    obj: ['STL', '3MF', 'AMF'],
+    stl: ['OBJ', '3MF', 'AMF'],
+    '3mf': ['OBJ', 'STL', 'AMF'],
+    amf: ['OBJ', 'STL', '3MF']
   };
 
 
@@ -624,7 +637,8 @@ const FileConverter = () => {
     }
     
     // Detectar formatos de modelos 3D
-    if (fileName.endsWith('.obj') || fileName.endsWith('.stl')) {
+    if (fileName.endsWith('.obj') || fileName.endsWith('.stl') || 
+        fileName.endsWith('.3mf') || fileName.endsWith('.amf')) {
       const ext = fileName.split('.').pop();
       return MODEL_3D_OPTIONS[ext] || [];
     }
@@ -949,6 +963,82 @@ const FileConverter = () => {
                             />
                             <span>Normalizar volumen</span>
                           </label>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Opciones de Modelo 3D */}
+                {isModel3D && outputFormat && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.4 }}
+                  >
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="font-medium text-sm">Opciones de modelo 3D:</p>
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <svg className="h-3 w-3 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                          </svg>
+                          <span>{file.name}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Nivel de optimización - Estilo slider */}
+                      <div className="mb-4">
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs text-muted-foreground">
+                            Calidad del modelo
+                          </label>
+                          <span className="text-xs font-medium">
+                            {model3DOptions.optimization === 'normal' ? '100% (Original)' : 
+                             model3DOptions.optimization === 'optimized' ? '50% (Optimizado)' : '30% (Rendimiento)'}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="2"
+                          value={model3DOptions.optimization === 'normal' ? 2 : model3DOptions.optimization === 'optimized' ? 1 : 0}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setModel3DOptions({
+                              ...model3DOptions, 
+                              optimization: val === 2 ? 'normal' : val === 1 ? 'optimized' : 'performance'
+                            });
+                          }}
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                          <span>Rendimiento</span>
+                          <span>Optimizado</span>
+                          <span>Original</span>
+                        </div>
+                      </div>
+
+                      {/* Info sobre el nivel seleccionado */}
+                      <div className="bg-muted/50 p-3 rounded-lg border border-border/50">
+                        <div className="flex items-start gap-2">
+                          <svg className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                            <path d="M12 16V12M12 8H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                          <div className="text-xs text-muted-foreground">
+                            {model3DOptions.optimization === 'normal' && (
+                              <span>Mantiene todos los detalles del modelo original. Ideal para impresión 3D de alta calidad.</span>
+                            )}
+                            {model3DOptions.optimization === 'optimized' && (
+                              <span>Reduce vértices un ~50%. Buen balance entre calidad visual y tamaño de archivo.</span>
+                            )}
+                            {model3DOptions.optimization === 'performance' && (
+                              <span>Reduce vértices un ~70%. Ideal para visualización web o PCs de gama baja.</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
