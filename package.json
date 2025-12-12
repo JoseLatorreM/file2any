@@ -23,6 +23,7 @@
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
+    "crypto-js": "^4.2.0",
     "docx": "^9.5.1",
     "exceljs": "^4.4.0",
     "framer-motion": "^10.16.4",
