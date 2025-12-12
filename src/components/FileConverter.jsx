@@ -634,16 +634,67 @@ const FileConverter = () => {
     setIsVerifyingHash(true);
     setHashStatus(null);
     try {
-      const matches = verifyHash(hashInput, hashCompareValue, hashAlgorithm, hashFormat);
-      setHashStatus({
-        variant: matches ? 'success' : 'warning',
-        message: matches ? 'El hash coincide con el texto ingresado.' : 'El hash NO coincide con el texto proporcionado.'
-      });
-      toast({
-        title: matches ? 'Coincidencia encontrada' : 'No coincide',
-        description: matches ? 'El hash y el texto corresponden.' : 'El hash no corresponde con el texto actual.',
-        variant: matches ? 'default' : 'destructive',
-      });
+      // Intentar primero con el algoritmo y formato seleccionados
+      let matches = verifyHash(hashInput, hashCompareValue, hashAlgorithm, hashFormat);
+      let matchedAlgorithm = hashAlgorithm;
+      let matchedFormat = hashFormat;
+
+      // Si no coincide, intentar auto-detección probando todas las combinaciones
+      if (!matches) {
+        for (const algo of HASH_ALGORITHMS) {
+          for (const fmt of HASH_OUTPUT_FORMATS) {
+            // Saltar la combinación que ya probamos
+            if (algo.value === hashAlgorithm && fmt.value === hashFormat) continue;
+            
+            try {
+              if (verifyHash(hashInput, hashCompareValue, algo.value, fmt.value)) {
+                matches = true;
+                matchedAlgorithm = algo.value;
+                matchedFormat = fmt.value;
+                break;
+              }
+            } catch (e) {
+              // Ignorar errores de formato inválido durante la búsqueda
+              continue;
+            }
+          }
+          if (matches) break;
+        }
+      }
+
+      if (matches) {
+        // Si encontramos una coincidencia con otros parámetros, actualizar la UI
+        if (matchedAlgorithm !== hashAlgorithm || matchedFormat !== hashFormat) {
+          setHashAlgorithm(matchedAlgorithm);
+          setHashFormat(matchedFormat);
+          toast({
+            title: '¡Coincidencia detectada!',
+            description: `Se detectó automáticamente: ${matchedAlgorithm} (${matchedFormat === 'hex' ? 'Hexadecimal' : 'Base64'}).`,
+            variant: 'default',
+          });
+        } else {
+          toast({
+            title: 'Coincidencia encontrada',
+            description: 'El hash y el texto corresponden.',
+            variant: 'default',
+          });
+        }
+
+        setHashStatus({
+          variant: 'success',
+          message: `¡Éxito! El hash coincide usando ${matchedAlgorithm} (${matchedFormat}).`
+        });
+      } else {
+        setHashStatus({
+          variant: 'warning',
+          message: 'El hash NO coincide con el texto proporcionado (se probaron todos los algoritmos).'
+        });
+        toast({
+          title: 'No coincide',
+          description: 'El hash no corresponde con el texto actual en ningún formato conocido.',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       setHashStatus({ variant: 'error', message: error.message });
       toast({
@@ -1332,7 +1383,7 @@ const FileConverter = () => {
           </div>
 
           <div className="grid gap-2">
-            <label className={hashLabelClass}>Hash a verificar ("DesHash")</label>
+            <label className={hashLabelClass}>Hash a verificar</label>
             <textarea
               className={hashTextareaClass}
               placeholder="Pega aquí el hash que deseas comparar contra el texto original..."

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FileText, FileImage, FileAudio, FileVideo } from 'lucide-react';
+import { FileText, FileImage, FileAudio, FileVideo, Box, Hash } from 'lucide-react';
 
 const formatCategories = [
   {
@@ -23,6 +23,16 @@ const formatCategories = [
     icon: <FileVideo className="h-8 w-8 text-red-500" />,
     formats: ['MP4', 'AVI', 'MOV', 'MKV', 'WEBM'],
   },
+  {
+    name: 'Modelos 3D',
+    icon: <Box className="h-8 w-8 text-orange-500" />,
+    formats: ['OBJ', 'STL', '3MF', 'AMF'],
+  },
+  {
+    name: 'Hash & Cripto',
+    icon: <Hash className="h-8 w-8 text-slate-500" />,
+    formats: ['SHA-256', 'MD5', 'SHA-512', 'SHA-1', 'SHA3'],
+  },
 ];
 
 const SupportedFormats = () => {
@@ -33,7 +43,7 @@ const SupportedFormats = () => {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Formatos Soportados</h2>
           <p className="mt-4 text-lg text-muted-foreground">Cubrimos una amplia gama de formatos para tus necesidades.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {formatCategories.map((category, index) => (
             <motion.div
               key={index}
