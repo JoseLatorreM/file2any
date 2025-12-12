@@ -1,7 +1,7 @@
 // csvConverters.js
 // Conversiones limpias CSV → XLSX, PDF, JSON, XML
 import * as XLSX from 'xlsx';
-import { jsPDF } from 'jspdf';
+import { PdfGenerator } from './pdf/generator';
 
 // CSV → XLSX
 export async function csvToXlsx(file) {
@@ -49,27 +49,35 @@ function sanitizeTagName(name) {
 
 // CSV → PDF
 export async function csvToPdf(file) {
-  const text = await file.text();
-  const workbook = XLSX.read(text, { type: 'string', raw: false });
-  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(12);
-  let y = 20;
-  rows.forEach(row => {
-    let x = 20;
-    row.forEach(cell => {
-      pdf.text(String(cell), x, y);
-      x += 50;
-    });
-    y += 10;
-    if (y > pdf.internal.pageSize.getHeight() - 20) {
-      pdf.addPage();
-      y = 20;
+  try {
+    const text = await file.text();
+    const workbook = XLSX.read(text, { type: 'string', raw: false });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    
+    // Convertir a array de arrays para la tabla
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    
+    if (!data || data.length === 0) {
+      throw new Error("El archivo CSV está vacío");
     }
-  });
-  return pdf.output('blob');
+
+    const pdf = new PdfGenerator({
+      orientation: 'landscape',
+      format: 'a4'
+    });
+
+    // Asumimos que la primera fila son los encabezados
+    const headers = data[0].map(h => String(h));
+    const body = data.slice(1).map(row => row.map(cell => String(cell || '')));
+
+    pdf.addHeading(file.name, 2);
+    pdf.addTable(headers, body);
+
+    return pdf.getBlob();
+  } catch (error) {
+    console.error('Error CSV->PDF:', error);
+    throw new Error("No se pudo convertir CSV a PDF: " + error.message);
+  }
 }
 
 export const CSV_CONVERSION_OPTIONS = ['XLSX', 'PDF', 'JSON', 'XML'];

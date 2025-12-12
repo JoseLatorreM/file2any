@@ -6,16 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { useToast } from './ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-// Importar las funciones de conversión PDF
-import { pdfToDocx, pdfToTxt, pdfToMarkdown } from '../lib/pdfConverters';
+// Importar funciones de conversión PDF
+import { pdfToText, pdfToImages, pdfToDocx, pdfToMarkdown, PDF_CONVERSION_OPTIONS } from '../lib/pdf';
 // Importar las funciones de conversión DOCX
 import { docxToTxt, docxToMarkdown, docxToPdf, DOCX_CONVERSION_OPTIONS } from '../lib/docxConverters';
 // Importar las funciones de conversión XLSX
 import { xlsxToCsv, xlsxToJson, xlsxToXml, xlsxToPdf, XLSX_CONVERSION_OPTIONS } from '../lib/xlsxConverters';
 // Importar las funciones de conversión PPTX
-import { pptxToPdf, pptxToImages, pptxToTxt, PPTX_CONVERSION_OPTIONS } from '../lib/pptxConverters';
+import { pptxToImages, pptxToTxt, pptxToPdf, PPTX_CONVERSION_OPTIONS } from '../lib/pptxConverters';
 // Importar las funciones de conversión CSV
-import { csvToXlsx, csvToPdf, csvToJson, csvToXml, CSV_CONVERSION_OPTIONS } from '../lib/csvConverters';
+import { csvToXlsx, csvToJson, csvToXml, csvToPdf, CSV_CONVERSION_OPTIONS } from '../lib/csvConverters';
 // Importar las funciones de conversión JSON
 import { jsonToCsv, jsonToXlsx, jsonToXml, JSON_CONVERSION_OPTIONS } from '../lib/jsonConverters';
 // Importar las funciones de conversión XML
@@ -140,22 +140,54 @@ const FileConverter = () => {
       
       // PDF → TXT
       if (fileName.endsWith('.pdf') && outputFormat === 'TXT') {
-        console.log('Convirtiendo PDF a TXT con preservación de estructura...');
-        blob = await pdfToTxt(file);
+        blob = await pdfToText(file);
         url = URL.createObjectURL(blob);
       }
       // PDF → DOCX
       else if (fileName.endsWith('.pdf') && outputFormat === 'DOCX') {
-        console.log('Convirtiendo PDF a DOCX con preservación de formato...');
         blob = await pdfToDocx(file);
         url = URL.createObjectURL(blob);
       }
       // PDF → MD
       else if (fileName.endsWith('.pdf') && (outputFormat === 'MD' || outputFormat === 'MARKDOWN')) {
-        console.log('Convirtiendo PDF a Markdown con preservación de estructura...');
         blob = await pdfToMarkdown(file);
         url = URL.createObjectURL(blob);
       }
+      // PDF → PNG
+      else if (fileName.endsWith('.pdf') && outputFormat === 'PNG') {
+        const blobs = await pdfToImages(file, 'png');
+        blobs.forEach((imgBlob, idx) => {
+          const imgUrl = URL.createObjectURL(imgBlob);
+          const link = document.createElement('a');
+          link.href = imgUrl;
+          link.download = `${file.name.replace(/\.pdf$/i, '')}_page${idx + 1}.png`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(imgUrl), 1000);
+        });
+        toast({ title: '¡Conversión exitosa!', description: 'Páginas descargadas como PNG.' });
+        setIsConverting(false);
+        return;
+      }
+      // PDF → JPG
+      else if (fileName.endsWith('.pdf') && outputFormat === 'JPG') {
+        const blobs = await pdfToImages(file, 'jpg');
+        blobs.forEach((imgBlob, idx) => {
+          const imgUrl = URL.createObjectURL(imgBlob);
+          const link = document.createElement('a');
+          link.href = imgUrl;
+          link.download = `${file.name.replace(/\.pdf$/i, '')}_page${idx + 1}.jpg`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(imgUrl), 1000);
+        });
+        toast({ title: '¡Conversión exitosa!', description: 'Páginas descargadas como JPG.' });
+        setIsConverting(false);
+        return;
+      }
+
       // DOCX → TXT
       else if (fileName.endsWith('.docx') && outputFormat === 'TXT') {
         blob = await docxToTxt(file);
@@ -375,37 +407,10 @@ const FileConverter = () => {
           return;
         }
       }
-      // PDF → Imagen (PNG/JPG)
-      else if (fileName.endsWith('.pdf') && (outputFormat === 'PNG' || outputFormat === 'JPG')) {
-        const format = outputFormat.toLowerCase();
-        const blobs = await pdfToImages(file, format);
-        
-        // Si hay múltiples páginas, descárgalas individualmente
-        if (blobs.length > 1) {
-          blobs.forEach((imgBlob, idx) => {
-            const imgUrl = URL.createObjectURL(imgBlob);
-            const link = document.createElement('a');
-            link.href = imgUrl;
-            link.download = `${file.name.replace(/\.pdf$/i, '')}_page${idx + 1}.${format}`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            setTimeout(() => URL.revokeObjectURL(imgUrl), 1000);
-          });
-          toast({
-            title: '¡Conversión exitosa!',
-            description: `Las imágenes ${format.toUpperCase()} han sido descargadas.`,
-          });
-          setIsConverting(false);
-          return;
-        } else if (blobs.length === 1) {
-          // Si solo hay una página, continuar con la descarga normal
-          blob = blobs[0];
-          url = URL.createObjectURL(blob);
-        } else {
-          throw new Error('No se pudo convertir el PDF a imagen.');
-        }
-      }
+      // PDF → Imagen (PNG/JPG) - Bloque redundante eliminado
+      /* 
+       * Este bloque ya está manejado al inicio de la cadena if/else.
+       */
       // Conversión de modelos 3D (OBJ, STL, 3MF, AMF)
       else if (fileName.endsWith('.obj') || fileName.endsWith('.stl') || 
                fileName.endsWith('.3mf') || fileName.endsWith('.amf')) {

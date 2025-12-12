@@ -2,9 +2,9 @@
 // pptxConverters.js
 // Conversiones limpias PPTX → PDF, PNG/JPG (diapositivas), TXT
 import JSZip from 'jszip';
-import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { parseStringPromise } from 'xml2js';
+import { PdfGenerator } from './pdf/generator';
 
 // Extrae el texto de todas las diapositivas de un archivo PPTX
 export async function pptxToTxt(file) {
@@ -36,41 +36,79 @@ export async function pptxToTxt(file) {
   return new Blob([allText.trim()], { type: 'text/plain' });
 }
 
-// PPTX → PDF (cada diapositiva como página, solo texto)
+// PPTX → PDF (cada diapositiva como página, texto extraído)
 export async function pptxToPdf(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const slideFiles = Object.keys(zip.files).filter(f => f.match(/^ppt\/slides\/slide[0-9]+.xml$/));
-  let isFirst = true;
-  for (const slideFile of slideFiles) {
-    if (!isFirst) pdf.addPage();
-    isFirst = false;
-    const xml = await zip.files[slideFile].async('string');
-    const slide = await parseStringPromise(xml);
-    const textRuns = [];
-    function extractText(obj) {
-      if (typeof obj === 'object') {
-        for (const key in obj) {
-          if (key === 'a:t' && Array.isArray(obj[key])) {
-            textRuns.push(obj[key].join(' '));
-          } else {
-            extractText(obj[key]);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    
+    const pdf = new PdfGenerator({
+      orientation: 'landscape',
+      format: 'a4'
+    });
+    
+    // Encontrar archivos de diapositivas y ordenarlos
+    const slideFiles = Object.keys(zip.files)
+      .filter(f => f.match(/^ppt\/slides\/slide[0-9]+.xml$/))
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/slide(\d+)\.xml/)[1]);
+        const numB = parseInt(b.match(/slide(\d+)\.xml/)[1]);
+        return numA - numB;
+      });
+
+    let isFirst = true;
+    
+    for (const slideFile of slideFiles) {
+      if (!isFirst) pdf.addNewPage();
+      isFirst = false;
+      
+      const xml = await zip.files[slideFile].async('string');
+      const slide = await parseStringPromise(xml);
+      
+      // Título de diapositiva (simulado)
+      const slideNum = slideFile.match(/slide(\d+)\.xml/)[1];
+      pdf.addHeading(`Diapositiva ${slideNum}`, 2);
+      
+      // Extraer texto recursivamente
+      const textRuns = [];
+      function extractText(obj) {
+        if (typeof obj === 'object') {
+          for (const key in obj) {
+            if (key === 'a:t') {
+              // El texto puede ser un string directo o un array
+              const content = Array.isArray(obj[key]) ? obj[key].join(' ') : obj[key];
+              if (content && typeof content === 'string') {
+                textRuns.push(content);
+              } else if (content && content._) {
+                 textRuns.push(content._);
+              }
+            } else {
+              extractText(obj[key]);
+            }
           }
         }
       }
-    }
-    extractText(slide);
-    let y = 30;
-    pdf.setFontSize(14);
-    for (const line of textRuns) {
-      if (line.trim()) {
-        pdf.text(line.trim(), 20, y);
-        y += 10;
+      extractText(slide);
+      
+      // Agregar texto al PDF
+      if (textRuns.length > 0) {
+        // Unir textos cercanos o agregar como párrafos separados
+        // Para simplicidad, agregamos cada bloque de texto como párrafo
+        textRuns.forEach(text => {
+          if (text.trim()) {
+            pdf.addParagraph(text.trim(), { fontSize: 14 });
+          }
+        });
+      } else {
+        pdf.addParagraph("(Diapositiva sin texto extraíble)", { fontStyle: 'italic', color: [100, 100, 100] });
       }
     }
+    
+    return pdf.getBlob();
+  } catch (error) {
+    console.error('Error PPTX->PDF:', error);
+    throw new Error("No se pudo convertir PPTX a PDF: " + error.message);
   }
-  return pdf.output('blob');
 }
 
 // PPTX → Imágenes (PNG/JPG) de cada diapositiva (solo texto)

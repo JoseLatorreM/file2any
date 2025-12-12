@@ -7,7 +7,6 @@ import BatchImageConverter from './components/BatchImageConverter';
 // import YouTubeDownloader from './components/YouTubeDownloader'; // Deshabilitado temporalmente - YouTube bloquea IPs de datacenter
 import Features from './components/Features';
 import SupportedFormats from './components/SupportedFormats';
-import Roadmap from './components/Roadmap';
 import Footer from './components/Footer';
 import { Toaster } from './components/ui/toaster';
 import { Loader2, FileText, Image } from 'lucide-react';
@@ -141,7 +140,6 @@ function App() {
             </section>
             <Features />
             <SupportedFormats />
-            <Roadmap />
           </main>
           <Footer />
           <Toaster />

@@ -3,7 +3,7 @@
 
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { jsPDF } from 'jspdf';
+import { PdfGenerator } from './pdf/generator';
 
 // XLSX → CSV (preserva datos y estructura)
 export async function xlsxToCsv(file) {
@@ -121,7 +121,7 @@ export async function xlsxToXml(file) {
   }
 }
 
-// XLSX → PDF (preserva layout y formato visual)
+// XLSX → PDF (preserva layout y formato visual usando PdfGenerator)
 export async function xlsxToPdf(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -130,9 +130,8 @@ export async function xlsxToPdf(file) {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(arrayBuffer);
     
-    const pdf = new jsPDF({
+    const pdf = new PdfGenerator({
       orientation: 'landscape',
-      unit: 'mm',
       format: 'a4'
     });
     
@@ -141,13 +140,16 @@ export async function xlsxToPdf(file) {
     // Procesar cada hoja del workbook
     workbook.eachSheet((worksheet, sheetId) => {
       if (!isFirstSheet) {
-        pdf.addPage();
+        pdf.addNewPage();
       }
       isFirstSheet = false;
       
-      // Extraer datos de la hoja sin títulos ni metadatos
-      const tableData = [];
+      // Título de la hoja
+      pdf.addHeading(worksheet.name, 2);
+      
+      // Extraer datos de la hoja
       const headers = [];
+      const body = [];
       
       // Obtener encabezados (primera fila)
       const firstRow = worksheet.getRow(1);
@@ -156,90 +158,38 @@ export async function xlsxToPdf(file) {
       });
       
       if (headers.length > 0) {
-        // Configuración de la tabla - empezar desde arriba sin títulos
-        const startX = 20;
-        const startY = 20;
-        const cellWidth = (pdf.internal.pageSize.getWidth() - 40) / headers.length;
-        const cellHeight = 8;
-        let currentY = startY;
-        
-        // Dibujar encabezados
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFillColor(66, 139, 202);
-        pdf.setTextColor(255, 255, 255);
-        
-        headers.forEach((header, index) => {
-          const x = startX + (index * cellWidth);
-          pdf.rect(x, currentY, cellWidth, cellHeight, 'F');
-          pdf.text(header.substring(0, 15), x + 2, currentY + 6);
-        });
-        
-        currentY += cellHeight;
-        
-        // Dibujar datos
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(0, 0, 0);
-        let isAlternateRow = false;
-        
-        for (let rowNumber = 2; rowNumber <= Math.min(worksheet.rowCount, 50); rowNumber++) {
-          const row = worksheet.getRow(rowNumber);
-          const rowData = [];
-          let hasData = false;
+        // Obtener datos
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // Saltar encabezado
           
-          for (let colNumber = 1; colNumber <= headers.length; colNumber++) {
-            const cell = row.getCell(colNumber);
+          const rowData = [];
+          // Asegurar que leemos todas las columnas, incluso las vacías
+          for (let i = 1; i <= headers.length; i++) {
+            const cell = row.getCell(i);
             let cellValue = '';
             
             if (cell.value !== null && cell.value !== undefined) {
-              // Preservar formato de fecha
-              if (cell.type === 'date') {
+              if (cell.type === ExcelJS.ValueType.Date) {
                 cellValue = cell.value.toLocaleDateString();
-              } else if (cell.type === 'number') {
-                cellValue = cell.value.toString();
+              } else if (typeof cell.value === 'object' && cell.value.result) {
+                 cellValue = cell.value.result.toString(); // Fórmulas
               } else {
                 cellValue = cell.value.toString();
               }
-              hasData = true;
             }
-            
             rowData.push(cellValue);
           }
-          
-          // Solo dibujar filas que no estén completamente vacías
-          if (hasData) {
-            // Alternar color de fondo
-            if (isAlternateRow) {
-              pdf.setFillColor(245, 245, 245);
-              pdf.rect(startX, currentY, pdf.internal.pageSize.getWidth() - 40, cellHeight, 'F');
-            }
-            
-            // Dibujar celdas
-            rowData.forEach((cellData, index) => {
-              const x = startX + (index * cellWidth);
-              pdf.text(cellData.substring(0, 15), x + 2, currentY + 6);
-            });
-            
-            currentY += cellHeight;
-            isAlternateRow = !isAlternateRow;
-            
-            // Verificar si necesitamos una nueva página
-            if (currentY > pdf.internal.pageSize.getHeight() - 30) {
-              pdf.addPage();
-              currentY = 20;
-              isAlternateRow = false;
-            }
-          }
-        }
+          body.push(rowData);
+        });
         
-        // Agregar borde a toda la tabla
-        pdf.setDrawColor(0, 0, 0);
-        pdf.rect(startX, startY, pdf.internal.pageSize.getWidth() - 40, currentY - startY);
+        // Renderizar tabla usando PdfGenerator
+        pdf.addTable(headers, body);
       }
     });
     
-    return pdf.output('blob');
+    return pdf.getBlob();
   } catch (error) {
+    console.error('Error XLSX->PDF:', error);
     throw new Error("No se pudo convertir el archivo XLSX a PDF: " + error.message);
   }
 }

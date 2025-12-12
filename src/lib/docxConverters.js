@@ -1,7 +1,123 @@
 // docxConverters.js - Conversiones robustas con preservación de formato
 import mammoth from 'mammoth';
-import jsPDF from 'jspdf';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PdfGenerator } from './pdf/generator';
+
+/**
+ * DOCX → PDF usando la librería optimizada PdfGenerator
+ * @param {File} file - Archivo DOCX
+ * @returns {Promise<Blob>} - Archivo PDF
+ */
+export async function docxToPdf(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    
+    console.log('Convirtiendo DOCX a PDF (Motor Optimizado)...');
+    
+    // 1. Convertir DOCX a HTML semántico
+    const result = await mammoth.convertToHtml({ 
+      arrayBuffer,
+      options: {
+        styleMap: [
+          "p[style-name='Heading 1'] => h1",
+          "p[style-name='Heading 2'] => h2", 
+          "p[style-name='Heading 3'] => h3",
+          "p[style-name='Title'] => h1",
+          "p[style-name='Subtitle'] => h2",
+          "b => strong",
+          "i => em",
+          "u => u",
+          "table => table",
+          "tr => tr",
+          "td => td",
+          "th => th"
+        ]
+      }
+    });
+    
+    if (!result.value) {
+      throw new Error("No se pudo extraer contenido del archivo DOCX");
+    }
+
+    // 2. Inicializar Generador PDF
+    const pdf = new PdfGenerator();
+
+    // 3. Parsear HTML a DOM
+    const parser = new DOMParser();
+    const htmlDoc = parser.parseFromString(result.value, 'text/html');
+
+    // 4. Procesar nodos usando la librería
+    const processNode = (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+      const tagName = node.tagName.toLowerCase();
+      const text = node.textContent.trim();
+
+      // Ignorar elementos vacíos (excepto imágenes o tablas)
+      if (!text && tagName !== 'img' && tagName !== 'table') return;
+
+      switch (tagName) {
+        case 'h1':
+          pdf.addHeading(text, 1);
+          break;
+
+        case 'h2':
+          pdf.addHeading(text, 2);
+          break;
+
+        case 'h3':
+          pdf.addHeading(text, 3);
+          break;
+
+        case 'p':
+          pdf.addParagraph(text);
+          break;
+
+        case 'ul':
+        case 'ol':
+          const items = node.querySelectorAll('li');
+          items.forEach((li, index) => {
+            const bullet = tagName === 'ol' ? `${index + 1}.` : '•';
+            pdf.addParagraph(`${bullet} ${li.textContent.trim()}`, { indent: 5 });
+          });
+          break;
+
+        case 'table':
+          const headers = [];
+          const body = [];
+          
+          const rows = node.querySelectorAll('tr');
+          rows.forEach((row, rowIndex) => {
+            const cells = Array.from(row.querySelectorAll('td, th')).map(cell => cell.textContent.trim());
+            if (rowIndex === 0) {
+              headers.push(...cells);
+            } else {
+              body.push(cells);
+            }
+          });
+
+          if (headers.length > 0 || body.length > 0) {
+            // Si la primera fila parece encabezado (th) o es la única
+            const hasTh = node.querySelector('th');
+            const finalHead = hasTh ? headers : [];
+            const finalBody = hasTh ? body : [headers, ...body];
+
+            pdf.addTable(finalHead.length > 0 ? finalHead : undefined, finalBody);
+          }
+          break;
+      }
+    };
+
+    // Procesar todos los nodos hijos del body
+    Array.from(htmlDoc.body.children).forEach(processNode);
+
+    console.log(`DOCX→PDF: Conversión completada`);
+    return pdf.getBlob();
+    
+  } catch (error) {
+    console.error('Error en conversión DOCX→PDF:', error);
+    throw new Error("No se pudo convertir el archivo DOCX a PDF: " + error.message);
+  }
+}
 
 /**
  * DOCX → TXT preservando estructura, espaciado y formato
@@ -528,202 +644,6 @@ function convertHtmlToMarkdown(html) {
     .replace(/\n{4,}/g, '\n\n\n') // Máximo 3 saltos de línea
     .replace(/\s+$/gm, '') // Espacios al final de línea
     .trim();
-}
-
-/**
- * DOCX → PDF preservando formato original y estructura
- * @param {File} file - Archivo DOCX
- * @returns {Promise<Blob>} - Archivo PDF
- */
-export async function docxToPdf(file) {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    
-    console.log('Convirtiendo DOCX a PDF con preservación de formato...');
-    
-    // Extraer contenido con formato preservado
-    const options = {
-      styleMap: [
-        "p[style-name='Heading 1'] => h1:fresh",
-        "p[style-name='Heading 2'] => h2:fresh", 
-        "p[style-name='Heading 3'] => h3:fresh",
-        "p[style-name='Heading 4'] => h4:fresh",
-        "p[style-name='Title'] => h1:fresh",
-        "p[style-name='Subtitle'] => h2:fresh",
-        "r[style-name='Strong'] => strong",
-        "r[style-name='Emphasis'] => em",
-        "b => strong",
-        "i => em",
-        "u => u",
-        "table => table",
-        "tr => tr",
-        "td => td",
-        "th => th"
-      ],
-      includeEmbeddedStyleMap: true,
-      includeDefaultStyleMap: true
-    };
-    
-    const result = await mammoth.convertToHtml({ arrayBuffer, options });
-    
-    if (!result.value) {
-      throw new Error("No se pudo extraer contenido del archivo DOCX");
-    }
-    
-    // Crear PDF con jsPDF
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-    
-    // Configurar fuentes y estilos
-    pdf.setFont('helvetica');
-    pdf.setFontSize(12);
-    
-    let y = 20;
-    const margin = 20;
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const maxWidth = pageWidth - 2 * margin;
-    
-    // Procesar HTML elemento por elemento para preservar formato
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(result.value, 'text/html');
-    
-    function addTextToPdf(text, fontSize = 12, fontStyle = 'normal', indent = 0) {
-      if (!text.trim()) return;
-      
-      pdf.setFontSize(fontSize);
-      pdf.setFont('helvetica', fontStyle);
-      
-      const lines = pdf.splitTextToSize(text.trim(), maxWidth - indent);
-      
-      lines.forEach((line) => {
-        if (y > 280) { // Nueva página si es necesario
-          pdf.addPage();
-          y = 20;
-        }
-        
-        pdf.text(line, margin + indent, y);
-        y += fontSize * 0.4 + 2; // Espaciado basado en tamaño de fuente
-      });
-    }
-    
-    function processElement(element) {
-      const tagName = element.tagName.toLowerCase();
-      const textContent = element.textContent.trim();
-      
-      switch (tagName) {
-        case 'h1':
-          y += 10; // Espacio extra antes del encabezado
-          addTextToPdf(textContent, 18, 'bold');
-          y += 8; // Espacio extra después del encabezado
-          break;
-          
-        case 'h2':
-          y += 8;
-          addTextToPdf(textContent, 16, 'bold');
-          y += 6;
-          break;
-          
-        case 'h3':
-          y += 6;
-          addTextToPdf(textContent, 14, 'bold');
-          y += 4;
-          break;
-          
-        case 'h4':
-          y += 4;
-          addTextToPdf(textContent, 13, 'bold');
-          y += 3;
-          break;
-          
-        case 'p':
-          // Detectar si es una lista por el contenido
-          if (/^\d+[\.\)]\s/.test(textContent)) {
-            addTextToPdf(textContent, 12, 'normal', 5);
-          } else if (/^[•\-\*]\s/.test(textContent)) {
-            addTextToPdf(textContent, 12, 'normal', 5);
-          } else {
-            addTextToPdf(textContent, 12, 'normal');
-          }
-          y += 4; // Espacio entre párrafos
-          break;
-          
-        case 'strong':
-        case 'b':
-          addTextToPdf(textContent, 12, 'bold');
-          break;
-          
-        case 'em':
-        case 'i':
-          addTextToPdf(textContent, 12, 'italic');
-          break;
-          
-        case 'ul':
-        case 'ol':
-          // Procesar elementos de lista
-          const listItems = element.querySelectorAll('li');
-          listItems.forEach((li, index) => {
-            const marker = tagName === 'ol' ? `${index + 1}. ` : '• ';
-            addTextToPdf(marker + li.textContent.trim(), 12, 'normal', 5);
-          });
-          y += 4;
-          break;
-          
-        case 'table':
-          // Procesar tablas en PDF
-          y += 6;
-          const tableRows = element.querySelectorAll('tr');
-          
-          if (tableRows.length > 0) {
-            // Agregar título de tabla
-            addTextToPdf('[TABLA]', 10, 'bold');
-            y += 3;
-            
-            tableRows.forEach((row, rowIndex) => {
-              const cells = row.querySelectorAll('td, th');
-              let rowText = '';
-              
-              cells.forEach((cell, cellIndex) => {
-                const cellContent = cell.textContent.trim();
-                rowText += cellContent;
-                if (cellIndex < cells.length - 1) rowText += ' | ';
-              });
-              
-              // Encabezados en negrita
-              const isHeader = rowIndex === 0 || row.querySelectorAll('th').length > 0;
-              addTextToPdf(rowText, 10, isHeader ? 'bold' : 'normal', 5);
-              
-              // Línea separadora después del encabezado
-              if (rowIndex === 0 && tableRows.length > 1) {
-                addTextToPdf('─'.repeat(Math.min(rowText.length, 50)), 8, 'normal', 5);
-              }
-            });
-          }
-          y += 6;
-          break;
-          
-        default:
-          // Para otros elementos, procesar recursivamente
-          for (const child of element.children) {
-            processElement(child);
-          }
-      }
-    }
-    
-    // Procesar todo el documento
-    for (const element of doc.body.children) {
-      processElement(element);
-    }
-    
-    console.log(`DOCX→PDF: Generado PDF con ${pdf.getNumberOfPages()} páginas`);
-    return pdf.output('blob');
-    
-  } catch (error) {
-    console.error('Error en conversión DOCX→PDF:', error);
-    throw new Error("No se pudo convertir el archivo DOCX a PDF: " + error.message);
-  }
 }
 
 // Exportar las opciones de conversión soportadas
