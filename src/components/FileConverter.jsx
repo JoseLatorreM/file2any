@@ -43,6 +43,8 @@ import {
   MODEL_3D_CONVERSION_OPTIONS
 } from '../lib/model3dConverters';
 import { hashText, verifyHash, HASH_ALGORITHMS, HASH_OUTPUT_FORMATS } from '../lib/hashUtils';
+import { QRCodeCanvas } from 'qrcode.react';
+import { QrCode, Download, Palette, Type } from 'lucide-react';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -76,6 +78,53 @@ const FileConverter = () => {
   const [hashTheme, setHashTheme] = useState('light'); // 'dark' | 'light'
   const [activeTool, setActiveTool] = useState('files');
   const { toast } = useToast();
+
+  // Estados para el Generador de QR
+  const [qrValue, setQrValue] = useState('https://files2any.com');
+  const [qrSize, setQrSize] = useState(256);
+  const [qrFgColor, setQrFgColor] = useState('#000000');
+  const [qrBgColor, setQrBgColor] = useState('#ffffff');
+  const [qrLevel, setQrLevel] = useState('H'); // L, M, Q, H
+  const [qrIncludeImage, setQrIncludeImage] = useState(false);
+  const [qrImageSrc, setQrImageSrc] = useState('');
+
+  const downloadQR = () => {
+    const canvas = document.getElementById('qr-canvas');
+    if (canvas) {
+      const pngUrl = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pngUrl;
+      downloadLink.download = `qr-code-${Date.now()}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      toast({
+        title: '¡QR Descargado!',
+        description: 'Tu código QR se ha guardado correctamente.',
+      });
+    }
+  };
+
+  const handleQrImageUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Archivo no válido',
+          description: 'Por favor sube solo archivos de imagen (JPG, PNG, etc).',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setQrImageSrc(event.target.result);
+        setQrIncludeImage(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Verificar si es un archivo de imagen
   const isImage = file && (
@@ -869,6 +918,17 @@ const FileConverter = () => {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTool('qr')}
+              className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${
+                activeTool === 'qr' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Generador QR
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTool('hash')}
               className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${
                 activeTool === 'hash' 
@@ -1285,6 +1345,137 @@ const FileConverter = () => {
                     'Convertir Archivo'
                   )}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : activeTool === 'qr' ? (
+          <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl font-bold">Generador de Códigos QR</CardTitle>
+              <CardDescription>Crea códigos QR personalizados con colores, logos y estilos únicos.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Controles */}
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Contenido del QR</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={qrValue}
+                        onChange={(e) => setQrValue(e.target.value)}
+                        className="w-full p-3 rounded-md border bg-background pr-10"
+                        placeholder="https://ejemplo.com o Texto"
+                      />
+                      <Type className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium flex items-center gap-2 h-5">
+                        <Palette className="h-4 w-4" /> Color QR
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={qrFgColor}
+                          onChange={(e) => setQrFgColor(e.target.value)}
+                          className="h-10 w-full cursor-pointer rounded-md border p-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium flex items-center gap-2 h-5">
+                        <div className="h-4 w-4 border rounded bg-white" /> Fondo
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={qrBgColor}
+                          onChange={(e) => setQrBgColor(e.target.value)}
+                          className="h-10 w-full cursor-pointer rounded-md border p-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Logo Central (Opcional)</label>
+                    <div className="flex items-center gap-4">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => document.getElementById('qr-logo-upload').click()}
+                      >
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        {qrIncludeImage ? 'Cambiar Logo' : 'Subir Logo'}
+                      </Button>
+                      {qrIncludeImage && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setQrIncludeImage(false);
+                            setQrImageSrc('');
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <input
+                      id="qr-logo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleQrImageUpload}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Nivel de Corrección</label>
+                    <Select value={qrLevel} onValueChange={setQrLevel}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="L">Bajo (7%)</SelectItem>
+                        <SelectItem value="M">Medio (15%)</SelectItem>
+                        <SelectItem value="Q">Alto (25%)</SelectItem>
+                        <SelectItem value="H">Máximo (30%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Previsualización */}
+                <div className="flex flex-col items-center justify-center space-y-6 bg-muted/30 rounded-xl p-6 border overflow-hidden">
+                  <div className="bg-white p-4 rounded-lg shadow-sm max-w-full flex justify-center">
+                    <QRCodeCanvas
+                      id="qr-canvas"
+                      value={qrValue}
+                      size={qrSize}
+                      bgColor={qrBgColor}
+                      fgColor={qrFgColor}
+                      style={{ maxWidth: '100%', height: 'auto' }}
+                      level={qrLevel}
+                      includeMargin={true}
+                      imageSettings={qrIncludeImage && qrImageSrc ? {
+                        src: qrImageSrc,
+                        x: undefined,
+                        y: undefined,
+                        height: qrSize * 0.2,
+                        width: qrSize * 0.2,
+                        excavate: true,
+                      } : undefined}
+                    />
+                  </div>
+                  <Button onClick={downloadQR} className="w-full max-w-xs" size="lg">
+                    <Download className="mr-2 h-4 w-4" /> Descargar PNG
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

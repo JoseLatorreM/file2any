@@ -15,6 +15,7 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@imgly/background-removal": "^1.7.0",
     "@puppeteer/browsers": "^2.10.9",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.0.2",
@@ -41,6 +42,7 @@
     "pdfjs-dist": "^5.4.149",
     "pptxjs": "^0.0.0",
     "puppeteer-core": "^24.20.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-helmet": "^6.1.0",
