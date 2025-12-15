@@ -1,0 +1,9 @@
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost', 
+  user: process.env.DB_USER || 'u961483530_Shin',      // Usuario de Hostinger
+  password: process.env.DB_PASSWORD || 'qE~#ppl4',      // Contraseña de Hostinger
+  database: process.env.DB_NAME || 'u961483530_Comentarios', // Base de datos de Hostinger
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};

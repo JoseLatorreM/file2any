@@ -52,6 +52,13 @@ import { Info, Scissors, Play, Pause, Volume2 } from 'lucide-react';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import { trimAudio } from '../lib/audioTrimmer';
+// Importar las funciones de conversión de video
+import {
+  convertVideoToGif,
+  convertVideoToMp3,
+  getVideoType,
+  VIDEO_CONVERSION_OPTIONS
+} from '../lib/videoConverters';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -115,6 +122,13 @@ const FileConverter = () => {
   const [isTrimming, setIsTrimming] = useState(false);
   const audioContainerRef = React.useRef(null);
   const wavesurferRef = React.useRef(null); // Ref para mantener la instancia sin causar re-renders
+
+  // Estados para conversión de video
+  const [videoStartTime, setVideoStartTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(5); // Default 5 seconds for GIF
+  const [videoTotalDuration, setVideoTotalDuration] = useState(0);
+  const [gifQuality, setGifQuality] = useState('medium'); // 'original', 'medium', 'performance'
+  const videoRef = React.useRef(null);
 
   // Efecto para inicializar WaveSurfer
   React.useEffect(() => {
@@ -239,6 +253,12 @@ const FileConverter = () => {
   // Verificar si es un archivo de modelo 3D
   const isModel3D = file && isModel3DFile(file);
 
+  // Verificar si es un archivo de video
+  const isVideo = file && (
+    file.type.includes('video') || 
+    file.name.toLowerCase().match(/\.(mp4|webm|ogg)$/)
+  );
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
@@ -261,6 +281,36 @@ const FileConverter = () => {
   }, []);
   
   const handleConvert = async () => {
+    // Manejo especial para herramientas dedicadas
+    if (activeTool === 'gif-creator') {
+      if (!file) {
+        toast({ title: 'Error', description: 'Selecciona un video primero.', variant: 'destructive' });
+        return;
+      }
+      setIsConverting(true);
+      try {
+        toast({ title: 'Creando GIF', description: `Procesando con calidad: ${gifQuality}...` });
+        const blob = await convertVideoToGif(file, videoStartTime, videoDuration, gifQuality, (progress) => {
+          // Optional: update progress
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${file.name.replace(/\.[^/.]+$/, "")}.gif`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: '¡Éxito!', description: 'GIF creado correctamente.' });
+      } catch (error) {
+        console.error(error);
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } finally {
+        setIsConverting(false);
+      }
+      return;
+    }
+
     if (!file || !outputFormat) {
       toast({
         title: 'Error',
@@ -559,6 +609,32 @@ const FileConverter = () => {
       /* 
        * Este bloque ya está manejado al inicio de la cadena if/else.
        */
+      // Conversión de Video
+      else if (isVideo) {
+        try {
+          const format = outputFormat.toLowerCase();
+          if (format === 'mp3') {
+             toast({
+               title: 'Procesando video',
+               description: 'Extrayendo audio a MP3...'
+             });
+             blob = await convertVideoToMp3(file, (progress) => {
+               // Optional: update progress
+             });
+             url = URL.createObjectURL(blob);
+          }
+        } catch (error) {
+          console.error('Error en conversión de video:', error);
+          toast({
+            title: 'Error en la conversión',
+            description: `No se pudo convertir el video: ${error.message}`,
+            variant: 'destructive',
+          });
+          setIsConverting(false);
+          return;
+        }
+      }
+
       // Conversión de modelos 3D (OBJ, STL, 3MF, AMF)
       else if (fileName.endsWith('.obj') || fileName.endsWith('.stl') || 
                fileName.endsWith('.3mf') || fileName.endsWith('.amf')) {
@@ -978,6 +1054,12 @@ const FileConverter = () => {
       return getAudioConversionOptions(audioType);
     }
     
+    // Detectar formatos de video
+    if (isVideo) {
+      const videoType = getVideoType(file);
+      return VIDEO_CONVERSION_OPTIONS[videoType] || [];
+    }
+
     // Detectar formatos de modelos 3D
     if (fileName.endsWith('.obj') || fileName.endsWith('.stl') || 
         fileName.endsWith('.3mf') || fileName.endsWith('.amf')) {
@@ -1086,6 +1168,17 @@ const FileConverter = () => {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTool('gif-creator')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'gif-creator' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Creador de GIF
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTool('audio-trimmer')}
               className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                 activeTool === 'audio-trimmer' 
@@ -1097,6 +1190,158 @@ const FileConverter = () => {
             </button>
           </div>
         </div>
+
+        {activeTool === 'gif-creator' ? (
+          <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl sm:text-3xl font-bold">Creador de GIFs</CardTitle>
+              <CardDescription>Convierte tus videos a GIF con control total sobre la calidad y duración.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!file ? (
+                <div 
+                  className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => document.getElementById('gif-upload')?.click()}
+                >
+                  <input 
+                    id="gif-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept="video/*"
+                    onChange={handleFileChange} 
+                  />
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <UploadCloud className="h-12 w-12" />
+                    <p className="font-semibold">Sube tu video aquí</p>
+                    <p className="text-sm">MP4, WEBM, OGG</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between bg-secondary p-3 rounded-lg">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <Play className="h-5 w-5 text-primary flex-shrink-0" />
+                      <span className="truncate font-medium text-sm">{file.name}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={removeFile}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                    <video 
+                      ref={videoRef}
+                      src={URL.createObjectURL(file)}
+                      className="w-full h-full object-contain"
+                      onLoadedMetadata={(e) => {
+                        setVideoTotalDuration(e.target.duration);
+                        if (videoDuration > e.target.duration) setVideoDuration(e.target.duration);
+                      }}
+                      controls
+                    />
+                  </div>
+
+                  <div className="space-y-4 p-4 bg-secondary/30 rounded-lg border border-border/50">
+                    <div className="flex justify-between text-xs font-medium">
+                      <span>Inicio: {videoStartTime.toFixed(1)}s</span>
+                      <span>Duración: {videoDuration.toFixed(1)}s</span>
+                    </div>
+                    
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Punto de inicio</label>
+                      <input 
+                        type="range"
+                        min="0"
+                        max={Math.max(0, videoTotalDuration - 0.1)}
+                        step="0.1"
+                        value={videoStartTime}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setVideoStartTime(val);
+                          if (videoRef.current) videoRef.current.currentTime = val;
+                          if (val + videoDuration > videoTotalDuration) {
+                            setVideoDuration(Math.max(0.1, videoTotalDuration - val));
+                          }
+                        }}
+                        className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Duración del GIF (máx 30s)</label>
+                      <input 
+                        type="range"
+                        min="0.5"
+                        max={Math.min(30, Math.max(0.5, videoTotalDuration - videoStartTime))}
+                        step="0.1"
+                        value={videoDuration}
+                        onChange={(e) => setVideoDuration(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="pt-2 border-t border-border/50">
+                      <label className="text-sm font-medium mb-2 block">Calidad de Conversión</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => setGifQuality('original')}
+                          className={`p-2 rounded-md text-xs border transition-all ${
+                            gifQuality === 'original' 
+                              ? 'bg-primary text-primary-foreground border-primary' 
+                              : 'bg-background hover:bg-accent border-border'
+                          }`}
+                        >
+                          <span className="block font-bold mb-0.5">Original</span>
+                          <span className="text-[10px] opacity-80">Alta calidad, lento</span>
+                        </button>
+                        <button
+                          onClick={() => setGifQuality('medium')}
+                          className={`p-2 rounded-md text-xs border transition-all ${
+                            gifQuality === 'medium' 
+                              ? 'bg-primary text-primary-foreground border-primary' 
+                              : 'bg-background hover:bg-accent border-border'
+                          }`}
+                        >
+                          <span className="block font-bold mb-0.5">Media</span>
+                          <span className="text-[10px] opacity-80">Balanceado</span>
+                        </button>
+                        <button
+                          onClick={() => setGifQuality('performance')}
+                          className={`p-2 rounded-md text-xs border transition-all ${
+                            gifQuality === 'performance' 
+                              ? 'bg-primary text-primary-foreground border-primary' 
+                              : 'bg-background hover:bg-accent border-border'
+                          }`}
+                        >
+                          <span className="block font-bold mb-0.5">Rendimiento</span>
+                          <span className="text-[10px] opacity-80">Baja calidad, rápido</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleConvert} 
+                    disabled={isConverting}
+                    className="w-full h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    {isConverting ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Creando GIF...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 h-5 w-5" />
+                        Crear y Descargar GIF
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {activeTool === 'files' ? (
           <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
@@ -1408,6 +1653,92 @@ const FileConverter = () => {
                               </label>
                             </div>
                           </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Opciones de Video */}
+                    {file && outputFormat && isVideo && (
+                      <motion.div
+                        className="w-full mt-4 bg-secondary/50 p-4 rounded-lg shadow-inner"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.4 }}
+                      >
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-medium text-sm">Opciones de video:</p>
+                            <div className="flex items-center text-xs text-muted-foreground">
+                              <Play className="h-3 w-3 mr-1" />
+                              <span>{file.name}</span>
+                            </div>
+                          </div>
+
+                          {outputFormat.toLowerCase() === 'gif' && (
+                            <div className="space-y-4">
+                              <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                                <video 
+                                  ref={videoRef}
+                                  src={URL.createObjectURL(file)}
+                                  className="w-full h-full object-contain"
+                                  onLoadedMetadata={(e) => {
+                                    setVideoTotalDuration(e.target.duration);
+                                    if (videoDuration > e.target.duration) {
+                                      setVideoDuration(e.target.duration);
+                                    }
+                                  }}
+                                  controls
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-xs">
+                                  <span>Inicio: {videoStartTime.toFixed(1)}s</span>
+                                  <span>Duración: {videoDuration.toFixed(1)}s</span>
+                                </div>
+                                
+                                <div>
+                                  <label className="text-xs text-muted-foreground">Punto de inicio</label>
+                                  <input 
+                                    type="range"
+                                    min="0"
+                                    max={Math.max(0, videoTotalDuration - 0.1)}
+                                    step="0.1"
+                                    value={videoStartTime}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      setVideoStartTime(val);
+                                      if (videoRef.current) videoRef.current.currentTime = val;
+                                      // Adjust duration if it exceeds total
+                                      if (val + videoDuration > videoTotalDuration) {
+                                        setVideoDuration(Math.max(0.1, videoTotalDuration - val));
+                                      }
+                                    }}
+                                    className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="text-xs text-muted-foreground">Duración del GIF (máx 30s)</label>
+                                  <input 
+                                    type="range"
+                                    min="0.5"
+                                    max={Math.min(30, Math.max(0.5, videoTotalDuration - videoStartTime))}
+                                    step="0.1"
+                                    value={videoDuration}
+                                    onChange={(e) => setVideoDuration(parseFloat(e.target.value))}
+                                    className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {outputFormat.toLowerCase() === 'mp3' && (
+                            <div className="text-sm text-muted-foreground">
+                              Se extraerá el audio completo del video en formato MP3 de alta calidad.
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     )}

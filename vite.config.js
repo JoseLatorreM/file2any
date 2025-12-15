@@ -19,6 +19,10 @@ export default defineConfig({
     include: ['pdfjs-dist/build/pdf.mjs'],
   },
   server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
     fs: {
       // Permitir servir archivos desde node_modules
       allow: ['..', 'node_modules'],

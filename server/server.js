@@ -14,9 +14,9 @@ const execAsync = promisify(exec);
 // En producción, Hostinger suele usar 'localhost' si el Node.js corre en el mismo servidor que MySQL.
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost', 
-  user: process.env.DB_USER || 'u961483530_Shin',      // Usuario de Hostinger
-  password: process.env.DB_PASSWORD || 'qE~#ppl4',      // Contraseña de Hostinger
-  database: process.env.DB_NAME || 'u961483530_Comentarios', // Base de datos de Hostinger
+  user: process.env.DB_USER || 'root',      // Usuario de Hostinger
+  password: process.env.DB_PASSWORD || '',      // Contraseña de Hostinger
+  database: process.env.DB_NAME || 'file2any_local', // Base de datos de Hostinger
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
