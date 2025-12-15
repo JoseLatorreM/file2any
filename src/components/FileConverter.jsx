@@ -48,7 +48,10 @@ import { QrCode, Download, Palette, Type } from 'lucide-react';
 import JSZip from 'jszip';
 import { extractGifFrames } from '../lib/gifUtils';
 import exifr from 'exifr';
-import { Info } from 'lucide-react';
+import { Info, Scissors, Play, Pause, Volume2 } from 'lucide-react';
+import WaveSurfer from 'wavesurfer.js';
+import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
+import { trimAudio } from '../lib/audioTrimmer';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -101,6 +104,87 @@ const FileConverter = () => {
   // Estados para Analizador de Metadatos
   const [metadataResult, setMetadataResult] = useState(null);
   const [isAnalyzingMetadata, setIsAnalyzingMetadata] = useState(false);
+
+  // Estados para Recortador de Audio
+  const [audioTrimmerInstance, setAudioTrimmerInstance] = useState(null);
+  const [audioRegionsPlugin, setAudioRegionsPlugin] = useState(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [trimStartTime, setTrimStartTime] = useState(0);
+  const [trimEndTime, setTrimEndTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [isTrimming, setIsTrimming] = useState(false);
+  const audioContainerRef = React.useRef(null);
+  const wavesurferRef = React.useRef(null); // Ref para mantener la instancia sin causar re-renders
+
+  // Efecto para inicializar WaveSurfer
+  React.useEffect(() => {
+    // Solo inicializar si la herramienta activa es audio-trimmer, hay archivo y el contenedor existe
+    if (activeTool === 'audio-trimmer' && file && file.type.startsWith('audio/') && audioContainerRef.current) {
+      
+      // Limpiar instancia previa si existe
+      if (wavesurferRef.current) {
+        wavesurferRef.current.destroy();
+        wavesurferRef.current = null;
+      }
+
+      const ws = WaveSurfer.create({
+        container: audioContainerRef.current,
+        waveColor: '#4f46e5',
+        progressColor: '#818cf8',
+        cursorColor: '#333',
+        barWidth: 2,
+        barRadius: 3,
+        cursorWidth: 1,
+        height: 128,
+        barGap: 2,
+        minPxPerSec: 100, // Habilita scroll horizontal
+        autoScroll: true,
+        url: URL.createObjectURL(file),
+      });
+
+      const wsRegions = ws.registerPlugin(RegionsPlugin.create());
+
+      ws.on('ready', () => {
+        setAudioDuration(ws.getDuration());
+        // Crear región inicial (todo el audio)
+        wsRegions.addRegion({
+          start: 0,
+          end: ws.getDuration(),
+          color: 'rgba(79, 70, 229, 0.2)',
+          drag: true,
+          resize: true,
+        });
+        setTrimStartTime(0);
+        setTrimEndTime(ws.getDuration());
+      });
+
+      wsRegions.on('region-updated', (region) => {
+        setTrimStartTime(region.start);
+        setTrimEndTime(region.end);
+      });
+
+      wsRegions.on('region-clicked', (region, e) => {
+        e.stopPropagation();
+        region.play();
+      });
+
+      ws.on('play', () => setIsPlayingAudio(true));
+      ws.on('pause', () => setIsPlayingAudio(false));
+      ws.on('finish', () => setIsPlayingAudio(false));
+
+      wavesurferRef.current = ws;
+      setAudioTrimmerInstance(ws);
+      setAudioRegionsPlugin(wsRegions);
+
+      // Cleanup al desmontar o cambiar archivo
+      return () => {
+        if (wavesurferRef.current) {
+          wavesurferRef.current.destroy();
+          wavesurferRef.current = null;
+        }
+      };
+    }
+  }, [activeTool, file]);
 
   const downloadQR = () => {
     const canvas = document.getElementById('qr-canvas');
@@ -999,6 +1083,17 @@ const FileConverter = () => {
               }`}
             >
               Analizador de Metadatos
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('audio-trimmer')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'audio-trimmer' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Recortador de Audio
             </button>
           </div>
         </div>
@@ -2084,6 +2179,164 @@ const FileConverter = () => {
                     )}
                   </motion.div>
                 )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+    ) : activeTool === 'audio-trimmer' ? (
+      <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Recortador de Audio</CardTitle>
+          <CardDescription>Sube un archivo de audio, selecciona el fragmento que deseas y descárgalo.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AnimatePresence>
+            {!file ? (
+              <motion.div
+                key="dropzone-audio"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div 
+                  className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const droppedFile = e.dataTransfer.files[0];
+                    if (droppedFile && droppedFile.type.startsWith('audio/')) {
+                      setFile(droppedFile);
+                    } else {
+                      toast({
+                        title: 'Archivo no válido',
+                        description: 'Por favor sube un archivo de audio.',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => document.getElementById('audio-upload')?.click()}
+                >
+                  <input 
+                    id="audio-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept="audio/*"
+                    onChange={(e) => {
+                      const selectedFile = e.target.files[0];
+                      if (selectedFile) {
+                        setFile(selectedFile);
+                      }
+                    }} 
+                  />
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Volume2 className="h-12 w-12" />
+                    <p className="font-semibold">Arrastra tu audio aquí</p>
+                    <p className="text-sm">o haz clic para seleccionar</p>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="audio-editor"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex items-center gap-4 bg-secondary p-3 rounded-lg shadow-inner">
+                  <Volume2 className="h-8 w-8 text-primary flex-shrink-0" />
+                  <div className="flex-grow overflow-hidden">
+                    <p className="font-medium text-sm truncate">{file.name}</p>
+                    <p className="text-muted-foreground text-xs">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => { 
+                    removeFile(); 
+                    if (audioTrimmerInstance) {
+                      audioTrimmerInstance.destroy();
+                      setAudioTrimmerInstance(null);
+                    }
+                  }} className="h-8 w-8 flex-shrink-0">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="bg-background border rounded-lg p-4 shadow-sm overflow-hidden">
+                  <div className="mb-2 text-center text-sm text-muted-foreground">
+                    <Info className="inline-block w-4 h-4 mr-1 mb-0.5" />
+                    Arrastra los bordes de la zona sombreada para seleccionar el fragmento a recortar.
+                  </div>
+                  <div ref={audioContainerRef} className="w-full overflow-x-auto" />
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => audioTrimmerInstance && audioTrimmerInstance.playPause()}
+                    >
+                      {isPlayingAudio ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </Button>
+                    <div className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                      {trimStartTime.toFixed(2)}s - {trimEndTime.toFixed(2)}s
+                    </div>
+                  </div>
+
+                  <Button 
+                    size="lg" 
+                    onClick={async () => {
+                      setIsTrimming(true);
+                      try {
+                        const blob = await trimAudio(file, trimStartTime, trimEndTime, (msg) => {
+                           toast({
+                             title: 'Procesando audio',
+                             description: msg,
+                             duration: 1000,
+                           });
+                        });
+                        
+                        // Descargar
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `recorte_${file.name.replace(/\.[^/.]+$/, "")}.wav`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        toast({
+                          title: '¡Recorte completado!',
+                          description: 'Tu archivo de audio ha sido descargado.',
+                        });
+
+                      } catch (error) {
+                        console.error('Error recortando audio:', error);
+                        toast({
+                          title: 'Error',
+                          description: `No se pudo recortar el audio: ${error.message}`,
+                          variant: 'destructive',
+                        });
+                      }
+                      setIsTrimming(false);
+                    }} 
+                    disabled={isTrimming} 
+                    className="w-full sm:w-auto"
+                  >
+                    {isTrimming ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <Scissors className="mr-2 h-4 w-4" />
+                        Recortar y Descargar
+                      </>
+                    )}
+                  </Button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

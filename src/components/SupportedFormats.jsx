@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FileText, FileImage, FileAudio, FileVideo, Box, Hash } from 'lucide-react';
+import { FileText, FileImage, FileAudio, FileVideo, Box, Hash, Wrench } from 'lucide-react';
 
 const formatCategories = [
   {
@@ -32,6 +32,11 @@ const formatCategories = [
     name: 'Hash & Cripto',
     icon: <Hash className="h-8 w-8 text-slate-500" />,
     formats: ['SHA-256', 'MD5', 'SHA-512', 'SHA-1', 'SHA3'],
+  },
+  {
+    name: 'Herramientas',
+    icon: <Wrench className="h-8 w-8 text-yellow-500" />,
+    formats: ['Recorte Audio', 'Frames GIF', 'Metadatos', 'Generador QR'],
   },
 ];
 
