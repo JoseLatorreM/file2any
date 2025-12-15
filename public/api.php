@@ -50,6 +50,11 @@ if ($method === 'GET') {
     if ($action === 'like' && $id > 0) {
         // DAR LIKE
         $stmt = $conn->prepare("UPDATE suggestions SET likes = likes + 1 WHERE id = ?");
+        if (!$stmt) {
+            http_response_code(500);
+            echo json_encode(["error" => "Error DB (posiblemente falta columna likes): " . $conn->error]);
+            exit;
+        }
         $stmt->bind_param("i", $id);
         if ($stmt->execute()) {
             echo json_encode(["message" => "Like agregado"]);
@@ -80,6 +85,11 @@ if ($method === 'GET') {
         }
 
         $stmt = $conn->prepare("INSERT INTO suggestions (username, tool_name, comment) VALUES (?, ?, ?)");
+        if (!$stmt) {
+            http_response_code(500);
+            echo json_encode(["error" => "Error DB: " . $conn->error]);
+            exit;
+        }
         $stmt->bind_param("sss", $username, $tool_name, $comment);
         
         if ($stmt->execute()) {

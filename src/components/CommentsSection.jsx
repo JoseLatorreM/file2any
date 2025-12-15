@@ -103,7 +103,7 @@ const CommentsSection = () => {
       if (response.ok) {
         // Actualizar estado local
         setComments(comments.map(c => 
-          c.id === commentId ? { ...c, likes: (c.likes || 0) + 1 } : c
+          c.id === commentId ? { ...c, likes: parseInt(c.likes || 0) + 1 } : c
         ));
         
         // Guardar en localStorage
