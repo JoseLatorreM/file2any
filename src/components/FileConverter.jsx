@@ -45,6 +45,10 @@ import {
 import { hashText, verifyHash, HASH_ALGORITHMS, HASH_OUTPUT_FORMATS } from '../lib/hashUtils';
 import { QRCodeCanvas } from 'qrcode.react';
 import { QrCode, Download, Palette, Type } from 'lucide-react';
+import JSZip from 'jszip';
+import { extractGifFrames } from '../lib/gifUtils';
+import exifr from 'exifr';
+import { Info } from 'lucide-react';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -79,6 +83,12 @@ const FileConverter = () => {
   const [activeTool, setActiveTool] = useState('files');
   const { toast } = useToast();
 
+  // Estados para extracción de frames GIF
+  const [extractFrames, setExtractFrames] = useState(false);
+  const [extractedFrames, setExtractedFrames] = useState([]);
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+  const [gifFps, setGifFps] = useState('original'); // 'original', '30', '15', '5', '1'
+
   // Estados para el Generador de QR
   const [qrValue, setQrValue] = useState('https://files2any.com');
   const [qrSize, setQrSize] = useState(256);
@@ -87,6 +97,10 @@ const FileConverter = () => {
   const [qrLevel, setQrLevel] = useState('H'); // L, M, Q, H
   const [qrIncludeImage, setQrIncludeImage] = useState(false);
   const [qrImageSrc, setQrImageSrc] = useState('');
+
+  // Estados para Analizador de Metadatos
+  const [metadataResult, setMetadataResult] = useState(null);
+  const [isAnalyzingMetadata, setIsAnalyzingMetadata] = useState(false);
 
   const downloadQR = () => {
     const canvas = document.getElementById('qr-canvas');
@@ -374,6 +388,7 @@ const FileConverter = () => {
         blob = await xmlToJson(file);
         url = URL.createObjectURL(blob);
       }
+
       // Conversión de imágenes
       else if (
         (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
@@ -594,9 +609,34 @@ const FileConverter = () => {
     setIsConverting(false);
   };
 
+  const downloadAllFrames = async (framesToDownload = extractedFrames) => {
+    if (!framesToDownload || framesToDownload.length === 0) return;
+    
+    const zip = new JSZip();
+    // Crear carpeta con el nombre del archivo original
+    const folderName = file.name.replace(/\.[^/.]+$/, "");
+    const folder = zip.folder(folderName);
+    
+    framesToDownload.forEach((frame) => {
+      folder.file(frame.name, frame.blob);
+    });
+    
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${folderName}_frames.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const removeFile = () => {
     setFile(null);
     setOutputFormat(null);
+    setExtractFrames(false);
+    setExtractedFrames([]);
     // Resetear opciones de imagen a valores predeterminados
     setImageOptions({
       quality: 0.92,
@@ -904,11 +944,11 @@ const FileConverter = () => {
       <div className="space-y-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-sm font-medium text-muted-foreground">Selecciona la herramienta que necesitas</p>
-          <div className="inline-flex rounded-lg bg-muted p-1 shadow-md">
+          <div className="flex flex-wrap justify-center gap-1 rounded-lg bg-muted p-1 shadow-md w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setActiveTool('files')}
-              className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                 activeTool === 'files' 
                   ? 'bg-background text-primary shadow-sm' 
                   : 'text-muted-foreground hover:text-foreground'
@@ -919,7 +959,7 @@ const FileConverter = () => {
             <button
               type="button"
               onClick={() => setActiveTool('qr')}
-              className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                 activeTool === 'qr' 
                   ? 'bg-background text-primary shadow-sm' 
                   : 'text-muted-foreground hover:text-foreground'
@@ -930,7 +970,7 @@ const FileConverter = () => {
             <button
               type="button"
               onClick={() => setActiveTool('hash')}
-              className={`px-5 py-2 text-sm font-medium rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                 activeTool === 'hash' 
                   ? 'bg-background text-primary shadow-sm' 
                   : 'text-muted-foreground hover:text-foreground'
@@ -938,13 +978,35 @@ const FileConverter = () => {
             >
               Hash de texto
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('gif-extractor')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'gif-extractor' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Extractor GIF
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('metadata')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'metadata' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Analizador de Metadatos
+            </button>
           </div>
         </div>
 
         {activeTool === 'files' ? (
           <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-bold">Conversor de Archivos Universal</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl font-bold">Conversor de Archivos Universal</CardTitle>
               <CardDescription>Sube tu archivo, elige el formato y convierte. Simple, rápido y seguro.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -1033,7 +1095,7 @@ const FileConverter = () => {
                               <span>{file.name}</span>
                             </div>
                           </div>
-                          
+
                           {/* Calidad (para formatos que lo soportan) */}
                           {(outputFormat === 'JPG' || outputFormat === 'JPEG' || outputFormat === 'WEBP') && (
                             <div className="mb-4">
@@ -1339,19 +1401,61 @@ const FileConverter = () => {
                   {isConverting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Convirtiendo...
+                      {isExtractingFrames ? 'Extrayendo frames...' : 'Convirtiendo...'}
                     </>
                   ) : (
                     'Convertir Archivo'
                   )}
                 </Button>
               </div>
+
+              {/* Sección de Frames Extraídos */}
+              {extractedFrames.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="mt-8 border-t pt-6"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Frames Extraídos ({extractedFrames.length})</h3>
+                    <Button onClick={() => downloadAllFrames()} variant="default" size="sm">
+                      <Download className="mr-2 h-4 w-4" />
+                      Descargar Todo (ZIP)
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-2 bg-secondary/20 rounded-lg">
+                    {extractedFrames.map((frame, idx) => (
+                      <div key={idx} className="relative group bg-background rounded-md overflow-hidden border shadow-sm hover:shadow-md transition-all">
+                        <div className="aspect-square relative">
+                          <img 
+                            src={frame.url} 
+                            alt={`Frame ${idx + 1}`} 
+                            className="w-full h-full object-contain p-1"
+                          />
+                        </div>
+                        <div className="p-2 text-xs text-center border-t bg-muted/50 truncate">
+                          Frame {idx + 1}
+                        </div>
+                        <a 
+                          href={frame.url} 
+                          download={frame.name}
+                          className="absolute top-2 right-2 bg-primary text-primary-foreground p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                          title="Descargar frame"
+                        >
+                          <Download className="h-3 w-3" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
             </CardContent>
           </Card>
         ) : activeTool === 'qr' ? (
           <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-bold">Generador de Códigos QR</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl font-bold">Generador de Códigos QR</CardTitle>
               <CardDescription>Crea códigos QR personalizados con colores, logos y estilos únicos.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -1479,10 +1583,10 @@ const FileConverter = () => {
               </div>
             </CardContent>
           </Card>
-        ) : (
+        ) : activeTool === 'hash' ? (
           <Card className={hashCardClasses}>
             <CardHeader className="text-center space-y-4">
-              <CardTitle className={`text-3xl font-bold ${isHashDark ? 'text-white' : ''}`}>Generador y verificador de Hash</CardTitle>
+              <CardTitle className={`text-2xl sm:text-3xl font-bold ${isHashDark ? 'text-white' : ''}`}>Generador y verificador de Hash</CardTitle>
               <CardDescription className={isHashDark ? 'text-white/70' : 'text-muted-foreground'}>
                 Convierte texto a distintos algoritmos (SHA-256, SHA-3, SHA-512, MD5) y verifica coincidencias. El hashing es un proceso unidireccional, por lo que el "deshash" se logra comparando contra un valor conocido.
               </CardDescription>
@@ -1609,7 +1713,383 @@ const FileConverter = () => {
           )}
         </CardContent>
       </Card>
-        )}
+    ) : activeTool === 'gif-extractor' ? (
+      <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Extractor de Frames GIF</CardTitle>
+          <CardDescription>Descompón tus GIFs animados en imágenes individuales de alta calidad.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AnimatePresence>
+            {!file || !file.name.toLowerCase().endsWith('.gif') ? (
+              <motion.div
+                key="dropzone-gif"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div 
+                  className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const droppedFile = e.dataTransfer.files[0];
+                    if (droppedFile && droppedFile.name.toLowerCase().endsWith('.gif')) {
+                      setFile(droppedFile);
+                      setOutputFormat('PNG'); // Default format
+                    } else {
+                      toast({
+                        title: 'Archivo no válido',
+                        description: 'Por favor sube un archivo GIF.',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => document.getElementById('gif-upload')?.click()}
+                >
+                  <input 
+                    id="gif-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept=".gif"
+                    onChange={(e) => {
+                      const selectedFile = e.target.files[0];
+                      if (selectedFile) {
+                        setFile(selectedFile);
+                        setOutputFormat('PNG');
+                      }
+                    }} 
+                  />
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <ImageIcon className="h-12 w-12" />
+                    <p className="font-semibold">Arrastra tu GIF aquí</p>
+                    <p className="text-sm">o haz clic para seleccionar</p>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="gif-options"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex items-center gap-4 bg-secondary p-3 rounded-lg shadow-inner">
+                  <ImageIcon className="h-8 w-8 text-primary flex-shrink-0" />
+                  <div className="flex-grow overflow-hidden">
+                    <p className="font-medium text-sm truncate">{file.name}</p>
+                    <p className="text-muted-foreground text-xs">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={removeFile} className="h-8 w-8 flex-shrink-0">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <label className="text-sm font-medium">Formato de salida</label>
+                    <Select value={outputFormat} onValueChange={setOutputFormat}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona formato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PNG">PNG (Recomendado)</SelectItem>
+                        <SelectItem value="JPG">JPG</SelectItem>
+                        <SelectItem value="BMP">BMP</SelectItem>
+                        <SelectItem value="SVG">SVG (Incrustado)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-sm font-medium">Frecuencia de extracción (FPS)</label>
+                    <Select value={gifFps} onValueChange={setGifFps}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona FPS" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="original">Todos los frames (Original)</SelectItem>
+                        <SelectItem value="60">60 FPS (Muy fluido)</SelectItem>
+                        <SelectItem value="30">30 FPS (Estándar)</SelectItem>
+                        <SelectItem value="15">15 FPS (Económico)</SelectItem>
+                        <SelectItem value="5">5 FPS (Resumen)</SelectItem>
+                        <SelectItem value="1">1 FPS (1 imagen/seg)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex justify-center pt-4">
+                  <Button 
+                    size="lg" 
+                    onClick={async () => {
+                      setIsExtractingFrames(true);
+                      try {
+                        toast({
+                          title: 'Iniciando extracción',
+                          description: 'Cargando motor de procesamiento...',
+                        });
+                        
+                        const frames = await extractGifFrames(file, outputFormat, gifFps, (msg) => {
+                          if (msg.includes('Cargando') || msg.includes('Procesando') || msg.includes('Generando')) {
+                             toast({
+                               title: 'Procesando GIF',
+                               description: msg,
+                               duration: 2000,
+                             });
+                          }
+                        });
+                        setExtractedFrames(frames);
+                        
+                        toast({
+                          title: '¡Extracción completada!',
+                          description: `Se han extraído ${frames.length} frames. Puedes descargar el ZIP o imágenes individuales.`,
+                        });
+
+                        // await downloadAllFrames(frames);
+
+                      } catch (error) {
+                        console.error('Error extrayendo frames:', error);
+                        toast({
+                          title: 'Error',
+                          description: `No se pudieron extraer los frames: ${error.message}`,
+                          variant: 'destructive',
+                        });
+                      }
+                      setIsExtractingFrames(false);
+                    }} 
+                    disabled={isExtractingFrames} 
+                    className="w-full max-w-xs"
+                  >
+                    {isExtractingFrames ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Extrayendo frames...
+                      </>
+                    ) : (
+                      'Extraer Frames'
+                    )}
+                  </Button>
+                </div>
+
+                {extractedFrames.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mt-8 border-t pt-6"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">Frames Extraídos ({extractedFrames.length})</h3>
+                      <Button onClick={() => downloadAllFrames()} variant="default" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Descargar ZIP
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-2 bg-secondary/20 rounded-lg">
+                      {extractedFrames.map((frame, idx) => (
+                        <div key={idx} className="relative group bg-background rounded-md overflow-hidden border shadow-sm hover:shadow-md transition-all">
+                          <div className="aspect-square relative">
+                            <img 
+                              src={frame.url} 
+                              alt={`Frame ${idx + 1}`} 
+                              className="w-full h-full object-contain p-1"
+                            />
+                          </div>
+                          <div className="p-2 text-xs text-center border-t bg-muted/50 truncate">
+                            Frame {idx + 1}
+                          </div>
+                          <a 
+                            href={frame.url} 
+                            download={frame.name}
+                            className="absolute top-2 right-2 bg-primary text-primary-foreground p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                            title="Descargar frame"
+                          >
+                            <Download className="h-3 w-3" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+    ) : activeTool === 'metadata' ? (
+      <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Analizador de Metadatos</CardTitle>
+          <CardDescription>Extrae información oculta (EXIF, IPTC, XMP) de tus imágenes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AnimatePresence>
+            {!file ? (
+              <motion.div
+                key="dropzone-metadata"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div 
+                  className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const droppedFile = e.dataTransfer.files[0];
+                    if (droppedFile && droppedFile.type.startsWith('image/')) {
+                      setFile(droppedFile);
+                      setMetadataResult(null);
+                    } else {
+                      toast({
+                        title: 'Archivo no válido',
+                        description: 'Por favor sube un archivo de imagen.',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => document.getElementById('metadata-upload')?.click()}
+                >
+                  <input 
+                    id="metadata-upload" 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={(e) => {
+                      const selectedFile = e.target.files[0];
+                      if (selectedFile) {
+                        setFile(selectedFile);
+                        setMetadataResult(null);
+                      }
+                    }} 
+                  />
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Info className="h-12 w-12" />
+                    <p className="font-semibold">Arrastra tu imagen aquí</p>
+                    <p className="text-sm">o haz clic para seleccionar</p>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="metadata-view"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex items-center gap-4 bg-secondary p-3 rounded-lg shadow-inner">
+                  <ImageIcon className="h-8 w-8 text-primary flex-shrink-0" />
+                  <div className="flex-grow overflow-hidden">
+                    <p className="font-medium text-sm truncate">{file.name}</p>
+                    <p className="text-muted-foreground text-xs">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => { removeFile(); setMetadataResult(null); }} className="h-8 w-8 flex-shrink-0">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="flex justify-center">
+                  <Button 
+                    size="lg" 
+                    onClick={async () => {
+                      setIsAnalyzingMetadata(true);
+                      try {
+                        // Extraer todos los metadatos posibles
+                        const output = await exifr.parse(file, {
+                          tiff: true,
+                          xmp: true,
+                          icc: true,
+                          iptc: true,
+                          jfif: true,
+                          ihdr: true,
+                          exif: true,
+                          gps: true,
+                          interop: true,
+                          makerNote: true,
+                          userComment: true,
+                          mergeOutput: false // Mantener separado para mejor organización
+                        });
+
+                        if (!output) {
+                           throw new Error("No se encontraron metadatos en esta imagen.");
+                        }
+                        setMetadataResult(output);
+                        toast({
+                          title: 'Análisis completado',
+                          description: 'Se han extraído los metadatos de la imagen.',
+                        });
+                      } catch (error) {
+                        console.error('Error analizando metadatos:', error);
+                        toast({
+                          title: 'Información',
+                          description: `No se encontraron metadatos legibles o hubo un error: ${error.message}`,
+                          variant: 'default',
+                        });
+                        setMetadataResult({});
+                      }
+                      setIsAnalyzingMetadata(false);
+                    }} 
+                    disabled={isAnalyzingMetadata} 
+                    className="w-full max-w-xs"
+                  >
+                    {isAnalyzingMetadata ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Analizando...
+                      </>
+                    ) : (
+                      'Analizar Metadatos'
+                    )}
+                  </Button>
+                </div>
+
+                {metadataResult && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mt-8 border-t pt-6 space-y-6"
+                  >
+                    {Object.keys(metadataResult).length === 0 ? (
+                       <div className="text-center text-muted-foreground p-4">
+                         No se encontraron metadatos extendidos en esta imagen.
+                       </div>
+                    ) : (
+                      Object.entries(metadataResult).map(([section, data]) => {
+                        if (!data || Object.keys(data).length === 0) return null;
+                        return (
+                          <div key={section} className="space-y-2">
+                            <h3 className="text-lg font-semibold capitalize border-b pb-2">{section}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                              {Object.entries(data).map(([key, value]) => {
+                                // Filtrar valores binarios largos o buffers
+                                if (value instanceof Uint8Array || value instanceof ArrayBuffer) return null;
+                                let displayValue = String(value);
+                                if (typeof value === 'object' && value !== null) {
+                                    try { displayValue = JSON.stringify(value); } catch(e) { displayValue = '[Object]'; }
+                                }
+                                return (
+                                  <div key={key} className="flex flex-col sm:flex-row sm:justify-between py-1 border-b border-border/50">
+                                    <span className="font-medium text-muted-foreground mr-2">{key}:</span>
+                                    <span className="break-all text-right">{displayValue}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+    ) : null}
       </div>
     </motion.section>
   );
