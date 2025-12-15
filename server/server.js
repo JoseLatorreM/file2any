@@ -6,8 +6,43 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { spawn, exec } from 'child_process';
 import { promisify } from 'util';
+import mysql from 'mysql2/promise';
 
 const execAsync = promisify(exec);
+
+// Configuración de la Base de Datos
+// En producción, Hostinger suele usar 'localhost' si el Node.js corre en el mismo servidor que MySQL.
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost', 
+  user: process.env.DB_USER || 'u961483530_Shin',      // Usuario de Hostinger
+  password: process.env.DB_PASSWORD || 'qE~#ppl4',      // Contraseña de Hostinger
+  database: process.env.DB_NAME || 'u961483530_Comentarios', // Base de datos de Hostinger
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};
+
+let dbPool;
+
+// Intentar conectar a la BD
+const initDB = async () => {
+  try {
+    dbPool = mysql.createPool(dbConfig);
+    // Verificar conexión
+    const connection = await dbPool.getConnection();
+    console.log('✅ Conectado a la base de datos MySQL');
+    
+    // NOTA: Asumimos que la tabla 'suggestions' ya existe en la base de datos.
+    // No ejecutamos CREATE TABLE ni ALTER TABLE automáticamente.
+
+    connection.release();
+  } catch (error) {
+    console.error('❌ Error conectando a la BD:', error.message);
+    // No detenemos el servidor si falla la BD, solo no funcionarán los comentarios
+  }
+};
+
+initDB();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -383,6 +418,62 @@ exec('yt-dlp --version', (error, stdout) => {
     console.log(`✅ yt-dlp versión: ${stdout.trim()}`);
   }
 });
+
+// --- RUTAS DE COMENTARIOS (MySQL) ---
+
+app.get('/api/comments', async (req, res) => {
+  if (!dbPool) return res.status(503).json({ error: 'Base de datos no disponible' });
+  try {
+    const [rows] = await dbPool.query('SELECT * FROM suggestions ORDER BY created_at DESC LIMIT 50');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error obteniendo comentarios:', error);
+    res.status(500).json({ error: 'Error al obtener comentarios' });
+  }
+});
+
+app.post('/api/comments', async (req, res) => {
+  if (!dbPool) return res.status(503).json({ error: 'Base de datos no disponible' });
+  const { username, tool_name, comment } = req.body;
+  
+  if (!username || !comment) {
+    return res.status(400).json({ error: 'Faltan campos requeridos' });
+  }
+
+  // Validaciones de seguridad y longitud
+  // Limitar longitud para evitar problemas visuales y de almacenamiento
+  if (username.length > 50) return res.status(400).json({ error: 'El nombre no puede exceder 50 caracteres' });
+  if (tool_name && tool_name.length > 100) return res.status(400).json({ error: 'El nombre de la herramienta no puede exceder 100 caracteres' });
+  if (comment.length > 500) return res.status(400).json({ error: 'El comentario no puede exceder 500 caracteres' });
+
+  try {
+    // El uso de parámetros (?) en mysql2 previene inyecciones SQL automáticamente.
+    // Los valores se escapan y se tratan estrictamente como texto/datos, nunca como comandos ejecutables.
+    const [result] = await dbPool.query(
+      'INSERT INTO suggestions (username, tool_name, comment) VALUES (?, ?, ?)',
+      [username, tool_name || 'General', comment]
+    );
+    res.status(201).json({ id: result.insertId, message: 'Comentario guardado' });
+  } catch (error) {
+    console.error('Error guardando comentario:', error);
+    res.status(500).json({ error: 'Error al guardar comentario' });
+  }
+});
+
+app.post('/api/comments/:id/like', async (req, res) => {
+  if (!dbPool) return res.status(503).json({ error: 'Base de datos no disponible' });
+  const { id } = req.params;
+  
+  try {
+    await dbPool.query('UPDATE suggestions SET likes = likes + 1 WHERE id = ?', [id]);
+    res.json({ message: 'Like agregado' });
+  } catch (error) {
+    console.error('Error agregando like:', error);
+    res.status(500).json({ error: 'Error al agregar like' });
+  }
+});
+
+// --- FIN RUTAS COMENTARIOS ---
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
