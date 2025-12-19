@@ -11,6 +11,7 @@ import CommentsSection from './components/CommentsSection';
 import Footer from './components/Footer';
 import { Toaster } from './components/ui/toaster';
 import { Loader2, FileText, Image } from 'lucide-react';
+import Snowfall from 'react-snowfall';
 // import { Youtube } from 'lucide-react'; // Deshabilitado temporalmente
 
 function App() {
@@ -36,6 +37,18 @@ function App() {
         <title>Files2Any - Conversor de Archivos Gratuito y Seguro</title>
         <meta name="description" content="Convierte documentos, imágenes, audio y video de forma rápida y segura. Files2Any es tu herramienta de conversión online gratuita, sin anuncios y sin registro." />
       </Helmet>
+      
+      <Snowfall 
+        color={theme === 'dark' ? '#ffffff' : '#0EA5E9'}
+        style={{
+          position: 'fixed',
+          width: '100vw',
+          height: '100vh',
+          zIndex: 50,
+          pointerEvents: 'none'
+        }}
+        snowflakeCount={80}
+      />
       
       <AnimatePresence>
         {loading && (

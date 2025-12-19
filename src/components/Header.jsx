@@ -5,14 +5,24 @@ import { useToast } from './ui/use-toast';
 
 const Header = ({ theme, setTheme }) => {
   const { toast } = useToast();
+  const [isToggling, setIsToggling] = React.useState(false);
 
   const toggleTheme = () => {
+    if (isToggling) return;
+    
+    setIsToggling(true);
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
+    
     toast({
       title: `Cambiado a modo ${newTheme === 'light' ? 'claro' : 'oscuro'}`,
       description: '¡La interfaz se ha actualizado!',
     });
+
+    // Cooldown de 1 segundo para evitar spam
+    setTimeout(() => {
+      setIsToggling(false);
+    }, 1000);
   };
 
   return (

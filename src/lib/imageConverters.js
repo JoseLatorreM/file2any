@@ -9,6 +9,7 @@
 // Import required libraries
 import { jsPDF } from 'jspdf';
 import imageCompression from 'browser-image-compression';
+import GIF from 'gif.js';
 
 /**
  * Constants for supported formats
@@ -820,4 +821,159 @@ export const createImageZip = async (processedImages, zipFileName = 'images.zip'
     console.error('Error creating ZIP:', error);
     throw error;
   }
+};
+
+/**
+ * Convierte múltiples imágenes a un GIF animado
+ * @param {File[]} imageFiles - Array de archivos de imagen (jpg, jpeg, png)
+ * @param {Object} options - Opciones para crear el GIF
+ * @param {number} options.fps - Frames por segundo (1-30)
+ * @param {string} options.quality - Calidad del GIF ('low', 'medium', 'high')
+ * @param {number} options.width - Ancho del GIF (opcional)
+ * @param {Function} options.onProgress - Callback para progreso
+ * @returns {Promise<Blob>} - Promise que resuelve con el blob del GIF
+ */
+export const createGifFromImages = async (imageFiles, options = {}) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const {
+        fps = 10,
+        quality = 'medium',
+        width = 400,
+        onProgress = null
+      } = options;
+
+      const targetWidth = parseInt(width) || 400;
+
+      // Validar que al menos hay 2 imágenes
+      if (!imageFiles || imageFiles.length < 2) {
+        throw new Error('Se requieren al menos 2 imágenes para crear un GIF');
+      }
+
+      // Configurar opciones de GIF según calidad
+      let gifQuality = 10;
+      switch (quality) {
+        case 'high':
+          gifQuality = 2;
+          break;
+        case 'low':
+          gifQuality = 30;
+          break;
+        case 'medium':
+        default:
+          gifQuality = 10;
+          break;
+      }
+
+      // Crear instancia de GIF
+      const gif = new GIF({
+        workers: Math.max(2, (navigator.hardwareConcurrency || 4) - 1),
+        quality: gifQuality,
+        // width: targetWidth, // Dejar que gif.js infiera el tamaño del primer frame
+        workerScript: '/gif.worker.js'
+      });
+
+      // Procesar cada imagen
+      for (let i = 0; i < imageFiles.length; i++) {
+        if (onProgress) {
+          onProgress({
+            current: i + 1,
+            total: imageFiles.length,
+            stage: 'Procesando imágenes'
+          });
+        }
+
+        try {
+          // Leer el archivo como Data URL
+          const file = imageFiles[i];
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+
+          // Crear imagen
+          const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.crossOrigin = 'anonymous';
+            image.src = dataUrl;
+          });
+
+          // Validar dimensiones de imagen
+          if (!img.width || !img.height) {
+             console.warn(`Imagen ${i+1} tiene dimensiones inválidas, saltando.`);
+             continue;
+          }
+
+          // Crear canvas y dibujar imagen normalizada
+          const canvas = document.createElement('canvas');
+          
+          // Calcular altura manteniendo aspecto
+          const aspectRatio = img.height / img.width;
+          let height = Math.round(targetWidth * aspectRatio);
+          
+          // Asegurar dimensiones válidas (enteros positivos)
+          if (!Number.isFinite(height) || height <= 0) {
+            height = targetWidth; // Fallback cuadrado si falla cálculo
+          }
+          
+          canvas.width = targetWidth;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, targetWidth, height);
+
+          // Añadir frame al GIF con delay basado en FPS
+          const delay = 1000 / fps; // Convertir FPS a milisegundos
+          
+          // Pasar el elemento canvas directamente
+          gif.addFrame(canvas, { delay: delay, copy: true });
+
+        } catch (error) {
+          console.error(`Error procesando imagen ${i + 1}:`, error);
+          throw new Error(`Error procesando imagen ${i + 1}: ${error.message}`);
+        }
+      }
+
+      // Listener para cuando el GIF esté listo
+      gif.on('finished', (blob) => {
+        if (onProgress) {
+          onProgress({
+            current: imageFiles.length,
+            total: imageFiles.length,
+            stage: 'Completado'
+          });
+        }
+        resolve(blob);
+      });
+
+      // Listener para el progreso de renderizado
+      gif.on('progress', (progress) => {
+        if (onProgress) {
+          onProgress({
+            current: imageFiles.length,
+            total: imageFiles.length,
+            stage: `Renderizando GIF: ${Math.round(progress * 100)}%`
+          });
+        }
+      });
+
+      // Iniciar renderizado
+      if (onProgress) {
+        onProgress({
+          current: imageFiles.length,
+          total: imageFiles.length,
+          stage: 'Renderizando GIF...'
+        });
+      }
+      gif.render();
+
+    } catch (error) {
+      console.error('Error creating GIF:', error);
+      reject(error);
+    }
+  });
 };

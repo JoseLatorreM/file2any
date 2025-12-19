@@ -25,7 +25,8 @@ import {
   convertImage,
   getImageType,
   getConversionOptions as getImageConversionOptions,
-  manipulateImage
+  manipulateImage,
+  createGifFromImages
 } from '../lib/imageConverters';
 // Importar las funciones de conversión de audio
 import {
@@ -98,6 +99,14 @@ const FileConverter = () => {
   const [extractedFrames, setExtractedFrames] = useState([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   const [gifFps, setGifFps] = useState('original'); // 'original', '30', '15', '5', '1'
+
+  // Estados para Creador de GIF (Imágenes)
+  const [gifMode, setGifMode] = useState('video'); // 'video' | 'images'
+  const [gifImages, setGifImages] = useState([]);
+  const [gifImageFps, setGifImageFps] = useState('10');
+  const [gifImageQuality, setGifImageQuality] = useState('medium');
+  const [gifImageWidth, setGifImageWidth] = useState('400');
+  const [gifImageProgress, setGifImageProgress] = useState({ current: 0, total: 0, stage: '' });
 
   // Estados para el Generador de QR
   const [qrValue, setQrValue] = useState('https://files2any.com');
@@ -283,6 +292,40 @@ const FileConverter = () => {
   const handleConvert = async () => {
     // Manejo especial para herramientas dedicadas
     if (activeTool === 'gif-creator') {
+      if (gifMode === 'images') {
+        if (gifImages.length < 2) {
+          toast({ title: 'Error', description: 'Se requieren al menos 2 imágenes.', variant: 'destructive' });
+          return;
+        }
+        setIsConverting(true);
+        try {
+          toast({ title: 'Creando GIF', description: 'Procesando imágenes...' });
+          const blob = await createGifFromImages(gifImages, {
+            fps: parseInt(gifImageFps),
+            quality: gifImageQuality,
+            width: parseInt(gifImageWidth),
+            onProgress: (p) => setGifImageProgress(p)
+          });
+          
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `animated-${Date.now()}.gif`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          
+          toast({ title: '¡Éxito!', description: 'GIF creado correctamente.' });
+        } catch (error) {
+          console.error(error);
+          toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        } finally {
+          setIsConverting(false);
+        }
+        return;
+      }
+
       if (!file) {
         toast({ title: 'Error', description: 'Selecciona un video primero.', variant: 'destructive' });
         return;
@@ -1195,148 +1238,317 @@ const FileConverter = () => {
           <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl sm:text-3xl font-bold">Creador de GIFs</CardTitle>
-              <CardDescription>Convierte tus videos a GIF con control total sobre la calidad y duración.</CardDescription>
+              <CardDescription>Crea GIFs animados desde videos o secuencias de imágenes.</CardDescription>
+              
+              <div className="flex justify-center mt-4">
+                <div className="flex flex-wrap justify-center gap-1 rounded-lg bg-muted p-1 shadow-md w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setGifMode('video')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                      gifMode === 'video' 
+                        ? 'bg-background text-primary shadow-sm' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Desde Video
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGifMode('images')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                      gifMode === 'images' 
+                        ? 'bg-background text-primary shadow-sm' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Desde Imágenes
+                  </button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {!file ? (
-                <div 
-                  className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
-                  onClick={() => document.getElementById('gif-upload')?.click()}
-                >
-                  <input 
-                    id="gif-upload" 
-                    type="file" 
-                    className="hidden" 
-                    accept="video/*"
-                    onChange={handleFileChange} 
-                  />
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <UploadCloud className="h-12 w-12" />
-                    <p className="font-semibold">Sube tu video aquí</p>
-                    <p className="text-sm">MP4, WEBM, OGG</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between bg-secondary p-3 rounded-lg">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <Play className="h-5 w-5 text-primary flex-shrink-0" />
-                      <span className="truncate font-medium text-sm">{file.name}</span>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={removeFile}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-                    <video 
-                      ref={videoRef}
-                      src={URL.createObjectURL(file)}
-                      className="w-full h-full object-contain"
-                      onLoadedMetadata={(e) => {
-                        setVideoTotalDuration(e.target.duration);
-                        if (videoDuration > e.target.duration) setVideoDuration(e.target.duration);
-                      }}
-                      controls
-                    />
-                  </div>
-
-                  <div className="space-y-4 p-4 bg-secondary/30 rounded-lg border border-border/50">
-                    <div className="flex justify-between text-xs font-medium">
-                      <span>Inicio: {videoStartTime.toFixed(1)}s</span>
-                      <span>Duración: {videoDuration.toFixed(1)}s</span>
-                    </div>
-                    
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Punto de inicio</label>
+              {gifMode === 'video' ? (
+                <>
+                  {!file ? (
+                    <div 
+                      className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
+                      onClick={() => document.getElementById('gif-upload')?.click()}
+                    >
                       <input 
-                        type="range"
-                        min="0"
-                        max={Math.max(0, videoTotalDuration - 0.1)}
-                        step="0.1"
-                        value={videoStartTime}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          setVideoStartTime(val);
-                          if (videoRef.current) videoRef.current.currentTime = val;
-                          if (val + videoDuration > videoTotalDuration) {
-                            setVideoDuration(Math.max(0.1, videoTotalDuration - val));
-                          }
-                        }}
-                        className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                        id="gif-upload" 
+                        type="file" 
+                        className="hidden" 
+                        accept="video/*"
+                        onChange={handleFileChange} 
                       />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Duración del GIF (máx 30s)</label>
-                      <input 
-                        type="range"
-                        min="0.5"
-                        max={Math.min(30, Math.max(0.5, videoTotalDuration - videoStartTime))}
-                        step="0.1"
-                        value={videoDuration}
-                        onChange={(e) => setVideoDuration(parseFloat(e.target.value))}
-                        className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="pt-2 border-t border-border/50">
-                      <label className="text-sm font-medium mb-2 block">Calidad de Conversión</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          onClick={() => setGifQuality('original')}
-                          className={`p-2 rounded-md text-xs border transition-all ${
-                            gifQuality === 'original' 
-                              ? 'bg-primary text-primary-foreground border-primary' 
-                              : 'bg-background hover:bg-accent border-border'
-                          }`}
-                        >
-                          <span className="block font-bold mb-0.5">Original</span>
-                          <span className="text-[10px] opacity-80">Alta calidad, lento</span>
-                        </button>
-                        <button
-                          onClick={() => setGifQuality('medium')}
-                          className={`p-2 rounded-md text-xs border transition-all ${
-                            gifQuality === 'medium' 
-                              ? 'bg-primary text-primary-foreground border-primary' 
-                              : 'bg-background hover:bg-accent border-border'
-                          }`}
-                        >
-                          <span className="block font-bold mb-0.5">Media</span>
-                          <span className="text-[10px] opacity-80">Balanceado</span>
-                        </button>
-                        <button
-                          onClick={() => setGifQuality('performance')}
-                          className={`p-2 rounded-md text-xs border transition-all ${
-                            gifQuality === 'performance' 
-                              ? 'bg-primary text-primary-foreground border-primary' 
-                              : 'bg-background hover:bg-accent border-border'
-                          }`}
-                        >
-                          <span className="block font-bold mb-0.5">Rendimiento</span>
-                          <span className="text-[10px] opacity-80">Baja calidad, rápido</span>
-                        </button>
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <UploadCloud className="h-12 w-12" />
+                        <p className="font-semibold">Sube tu video aquí</p>
+                        <p className="text-sm">MP4, WEBM, OGG</p>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between bg-secondary p-3 rounded-lg">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <Play className="h-5 w-5 text-primary flex-shrink-0" />
+                          <span className="truncate font-medium text-sm">{file.name}</span>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={removeFile}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
 
-                  <Button 
-                    onClick={handleConvert} 
-                    disabled={isConverting}
-                    className="w-full h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-                  >
-                    {isConverting ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Creando GIF...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-5 w-5" />
-                        Crear y Descargar GIF
-                      </>
-                    )}
-                  </Button>
+                      <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                        <video 
+                          ref={videoRef}
+                          src={URL.createObjectURL(file)}
+                          className="w-full h-full object-contain"
+                          onLoadedMetadata={(e) => {
+                            setVideoTotalDuration(e.target.duration);
+                            if (videoDuration > e.target.duration) setVideoDuration(e.target.duration);
+                          }}
+                          controls
+                        />
+                      </div>
+
+                      <div className="space-y-4 p-4 bg-secondary/30 rounded-lg border border-border/50">
+                        <div className="flex justify-between text-xs font-medium">
+                          <span>Inicio: {videoStartTime.toFixed(1)}s</span>
+                          <span>Duración: {videoDuration.toFixed(1)}s</span>
+                        </div>
+                        
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Punto de inicio</label>
+                          <input 
+                            type="range"
+                            min="0"
+                            max={Math.max(0, videoTotalDuration - 0.1)}
+                            step="0.1"
+                            value={videoStartTime}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setVideoStartTime(val);
+                              if (videoRef.current) videoRef.current.currentTime = val;
+                              if (val + videoDuration > videoTotalDuration) {
+                                setVideoDuration(Math.max(0.1, videoTotalDuration - val));
+                              }
+                            }}
+                            className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Duración del GIF (máx 30s)</label>
+                          <input 
+                            type="range"
+                            min="0.5"
+                            max={Math.min(30, Math.max(0.5, videoTotalDuration - videoStartTime))}
+                            step="0.1"
+                            value={videoDuration}
+                            onChange={(e) => setVideoDuration(parseFloat(e.target.value))}
+                            className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+
+                        <div className="pt-2 border-t border-border/50">
+                          <label className="text-sm font-medium mb-2 block">Calidad de Conversión</label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <button
+                              onClick={() => setGifQuality('original')}
+                              className={`p-2 rounded-md text-xs border transition-all ${
+                                gifQuality === 'original' 
+                                  ? 'bg-primary text-primary-foreground border-primary' 
+                                  : 'bg-background hover:bg-accent border-border'
+                              }`}
+                            >
+                              <span className="block font-bold mb-0.5">Original</span>
+                              <span className="text-[10px] opacity-80">Alta calidad, lento</span>
+                            </button>
+                            <button
+                              onClick={() => setGifQuality('medium')}
+                              className={`p-2 rounded-md text-xs border transition-all ${
+                                gifQuality === 'medium' 
+                                  ? 'bg-primary text-primary-foreground border-primary' 
+                                  : 'bg-background hover:bg-accent border-border'
+                              }`}
+                            >
+                              <span className="block font-bold mb-0.5">Media</span>
+                              <span className="text-[10px] opacity-80">Balanceado</span>
+                            </button>
+                            <button
+                              onClick={() => setGifQuality('performance')}
+                              className={`p-2 rounded-md text-xs border transition-all ${
+                                gifQuality === 'performance' 
+                                  ? 'bg-primary text-primary-foreground border-primary' 
+                                  : 'bg-background hover:bg-accent border-border'
+                              }`}
+                            >
+                              <span className="block font-bold mb-0.5">Rendimiento</span>
+                              <span className="text-[10px] opacity-80">Baja calidad, rápido</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button 
+                        onClick={handleConvert} 
+                        disabled={isConverting}
+                        className="w-full h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                      >
+                        {isConverting ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Creando GIF...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="mr-2 h-5 w-5" />
+                            Generar GIF
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-6">
+                  {/* Modo Imágenes */}
+                  {gifImages.length === 0 ? (
+                    <div 
+                      className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
+                      onClick={() => document.getElementById('gif-images-upload')?.click()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                        if (files.length > 0) setGifImages(files);
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                    >
+                      <input 
+                        id="gif-images-upload" 
+                        type="file" 
+                        className="hidden" 
+                        multiple
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files?.length) {
+                            setGifImages(Array.from(e.target.files));
+                          }
+                        }} 
+                      />
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <ImageIcon className="h-12 w-12" />
+                        <p className="font-semibold">Sube tus imágenes aquí</p>
+                        <p className="text-sm">Arrastra múltiples imágenes o una carpeta</p>
+                        <p className="text-xs opacity-70">Mínimo 2 imágenes</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between bg-secondary p-3 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <ImageIcon className="h-5 w-5 text-primary" />
+                          <span className="font-medium text-sm">{gifImages.length} imágenes seleccionadas</span>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setGifImages([])} className="text-destructive hover:text-destructive">
+                          Limpiar
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-40 overflow-y-auto p-2 bg-secondary/20 rounded-lg">
+                        {gifImages.map((img, idx) => (
+                          <div key={idx} className="relative aspect-square bg-background rounded overflow-hidden border border-border/50">
+                            <img src={URL.createObjectURL(img)} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-4 p-4 bg-secondary/30 rounded-lg border border-border/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Velocidad</label>
+                            <Select value={gifImageFps} onValueChange={setGifImageFps}>
+                              <SelectTrigger className="bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="2">0.25x (Muy Lento)</SelectItem>
+                                <SelectItem value="5">0.5x (Lento)</SelectItem>
+                                <SelectItem value="10">1x (Normal)</SelectItem>
+                                <SelectItem value="20">2x (Rápido)</SelectItem>
+                                <SelectItem value="30">3x (Muy Rápido)</SelectItem>
+                                <SelectItem value="50">5x (Ultra Rápido)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Calidad</label>
+                            <Select value={gifImageQuality} onValueChange={setGifImageQuality}>
+                              <SelectTrigger className="bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">Baja (Rápido)</SelectItem>
+                                <SelectItem value="medium">Media (Balanceada)</SelectItem>
+                                <SelectItem value="high">Alta (Lento)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Ancho (px)</label>
+                            <input
+                              type="number"
+                              min="100"
+                              max="2000"
+                              step="50"
+                              value={gifImageWidth}
+                              onChange={(e) => setGifImageWidth(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {isConverting && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{gifImageProgress.stage}</span>
+                            <span>{Math.round((gifImageProgress.current / gifImageProgress.total) * 100)}%</span>
+                          </div>
+                          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                            <motion.div 
+                              className="h-full bg-primary"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(gifImageProgress.current / gifImageProgress.total) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <Button 
+                        onClick={handleConvert} 
+                        disabled={isConverting || gifImages.length < 2}
+                        className="w-full h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                      >
+                        {isConverting ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Procesando...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="mr-2 h-5 w-5" />
+                            Crear GIF
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

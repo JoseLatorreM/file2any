@@ -1,9 +1,109 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, ArrowBigUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, ArrowBigUp, ChevronLeft, ChevronRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { useToast } from './ui/use-toast';
+
+const CommentCard = ({ comment, index, likedComments, handleLike }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const maxLength = 125;
+  const shouldTruncate = comment.comment.length > maxLength;
+
+  const displayComment = isExpanded || !shouldTruncate 
+    ? comment.comment 
+    : `${comment.comment.substring(0, maxLength)}...`;
+
+  const isImplemented = comment.is_implemented == 1;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.2, delay: index * 0.05 }}
+      className={`bg-card border rounded-lg p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow min-h-[340px] ${
+        isImplemented ? 'border-emerald-500 ring-1 ring-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/10' : ''
+      }`}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm">{comment.username}</h4>
+              <p className="text-xs text-muted-foreground">
+                {new Date(comment.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            {comment.tool_name && comment.tool_name !== 'General' && (
+              <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full font-medium">
+                {comment.tool_name}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <div className="mb-6 min-h-[80px]">
+          <p className="text-sm text-foreground/90 leading-relaxed break-words inline">
+            {displayComment}
+          </p>
+          {shouldTruncate && (
+            <button 
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-xs text-primary font-medium ml-1 hover:underline focus:outline-none"
+            >
+              {isExpanded ? 'Leer menos' : 'Leer más'}
+            </button>
+          )}
+        </div>
+
+        {/* Respuesta del Admin */}
+        {comment.respuesta && (
+          <div className="mb-4 mt-2 bg-primary/5 p-3 rounded-md border border-primary/10 relative">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-bold text-primary">Admin:</span>
+            </div>
+            <p className="text-xs text-muted-foreground pl-6">
+              {comment.respuesta}
+            </p>
+          </div>
+        )}
+      </div>
+      
+      <div className="flex items-center justify-between pt-4 border-t mt-auto">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => handleLike(comment.id)}
+            disabled={likedComments.includes(comment.id)}
+            className={`p-1 rounded-full transition-colors ${
+              likedComments.includes(comment.id)
+                ? 'text-orange-500 bg-orange-500/10'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+            }`}
+          >
+            <ArrowBigUp className={`h-6 w-6 ${likedComments.includes(comment.id) ? 'fill-current' : ''}`} />
+          </button>
+          <span className={`font-bold text-sm ${likedComments.includes(comment.id) ? 'text-orange-600' : 'text-muted-foreground'}`}>
+            {comment.likes || 0}
+          </span>
+        </div>
+        
+        {isImplemented && (
+          <div className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1 rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span className="text-xs font-bold tracking-wide">¡Implementado!</span>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
 
 const CommentsSection = () => {
   const [comments, setComments] = useState([]);
@@ -191,60 +291,17 @@ const CommentsSection = () => {
         </div>
 
         {/* Comments Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-6 mb-8">
           <AnimatePresence mode="popLayout">
             {currentComments.map((comment, index) => (
-              <motion.div
-                key={comment.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2, delay: index * 0.05 }}
-                className="bg-card border rounded-lg p-6 flex flex-col justify-between h-full shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-sm">{comment.username}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    {comment.tool_name && comment.tool_name !== 'General' && (
-                      <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full font-medium">
-                        {comment.tool_name}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-foreground/90 mb-6 leading-relaxed break-words">
-                    {comment.comment}
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-between pt-4 border-t mt-auto">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleLike(comment.id)}
-                      disabled={likedComments.includes(comment.id)}
-                      className={`p-1 rounded-full transition-colors ${
-                        likedComments.includes(comment.id)
-                          ? 'text-orange-500 bg-orange-500/10'
-                          : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                      }`}
-                    >
-                      <ArrowBigUp className={`h-6 w-6 ${likedComments.includes(comment.id) ? 'fill-current' : ''}`} />
-                    </button>
-                    <span className={`font-bold text-sm ${likedComments.includes(comment.id) ? 'text-orange-600' : 'text-muted-foreground'}`}>
-                      {comment.likes || 0}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
+              <div key={comment.id} className="break-inside-avoid mb-6 inline-block w-full">
+                <CommentCard 
+                  comment={comment} 
+                  index={index} 
+                  likedComments={likedComments} 
+                  handleLike={handleLike} 
+                />
+              </div>
             ))}
           </AnimatePresence>
         </div>
