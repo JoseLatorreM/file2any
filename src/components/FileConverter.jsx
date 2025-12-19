@@ -139,6 +139,25 @@ const FileConverter = () => {
   const [gifQuality, setGifQuality] = useState('medium'); // 'original', 'medium', 'performance'
   const videoRef = React.useRef(null);
 
+  // Estados para Generador de UUID
+  const [uuidCount, setUuidCount] = useState(5);
+  const [generatedUuids, setGeneratedUuids] = useState('');
+  
+  const generateUuids = useCallback(() => {
+    const uuids = [];
+    for (let i = 0; i < uuidCount; i++) {
+      uuids.push(crypto.randomUUID());
+    }
+    setGeneratedUuids(uuids.join('\n'));
+  }, [uuidCount]);
+
+  // Regenerar UUIDs cuando cambia la cantidad
+  React.useEffect(() => {
+    if (activeTool === 'uuid') {
+      generateUuids();
+    }
+  }, [uuidCount, activeTool, generateUuids]);
+
   // Efecto para inicializar WaveSurfer
   React.useEffect(() => {
     // Solo inicializar si la herramienta activa es audio-trimmer, hay archivo y el contenedor existe
@@ -1230,6 +1249,17 @@ const FileConverter = () => {
               }`}
             >
               Recortador de Audio
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('uuid')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'uuid' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Generador UUID
             </button>
           </div>
         </div>
@@ -2883,6 +2913,70 @@ const FileConverter = () => {
               </motion.div>
             )}
           </AnimatePresence>
+        </CardContent>
+      </Card>
+    ) : activeTool === 'uuid' ? (
+      <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Generador de UUID</CardTitle>
+          <CardDescription>Genera identificadores únicos universales (UUID v4) de forma segura.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex flex-col space-y-2">
+              <div className="flex justify-between">
+                <label className="text-sm font-medium">Cantidad de UUIDs: {uuidCount}</label>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="200"
+                value={uuidCount}
+                onChange={(e) => setUuidCount(parseInt(e.target.value))}
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+            </div>
+
+            <div className="relative">
+              <textarea
+                readOnly
+                value={generatedUuids}
+                className="w-full h-64 p-4 font-mono text-sm bg-muted/50 rounded-lg border resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+
+            <div className="flex gap-4 justify-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedUuids);
+                  toast({
+                    title: 'Copiado',
+                    description: 'UUIDs copiados al portapapeles',
+                  });
+                }}
+              >
+                <File className="mr-2 h-4 w-4" />
+                Copiar
+              </Button>
+              <Button
+                onClick={() => {
+                  const blob = new Blob([generatedUuids], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `uuids-${Date.now()}.txt`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Descargar .txt
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     ) : null}
