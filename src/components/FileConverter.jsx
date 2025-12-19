@@ -53,6 +53,7 @@ import { Info, Scissors, Play, Pause, Volume2 } from 'lucide-react';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import { trimAudio } from '../lib/audioTrimmer';
+import JsBarcode from 'jsbarcode';
 // Importar las funciones de conversión de video
 import {
   convertVideoToGif,
@@ -157,6 +158,49 @@ const FileConverter = () => {
       generateUuids();
     }
   }, [uuidCount, activeTool, generateUuids]);
+
+  // Estados para Generador de Código de Barras
+  const [barcodeValue, setBarcodeValue] = useState('123456789');
+  const [barcodeFormat, setBarcodeFormat] = useState('CODE128');
+  const [barcodeWidth, setBarcodeWidth] = useState(2);
+  const [barcodeHeight, setBarcodeHeight] = useState(100);
+  const [barcodeDisplayValue, setBarcodeDisplayValue] = useState(true);
+  const barcodeCanvasRef = React.useRef(null);
+
+  // Efecto para generar el código de barras
+  React.useEffect(() => {
+    if (activeTool === 'barcode' && barcodeCanvasRef.current) {
+      try {
+        // Validación básica para EAN13 para evitar errores visuales
+        if (barcodeFormat === 'EAN13' && barcodeValue.length < 12) {
+           // No intentar renderizar si es muy corto para EAN13, o usar un fallback
+           return;
+        }
+
+        JsBarcode(barcodeCanvasRef.current, barcodeValue, {
+          format: barcodeFormat,
+          width: barcodeWidth,
+          height: barcodeHeight,
+          displayValue: barcodeDisplayValue,
+          margin: 10,
+          valid: function(valid) {
+            if (!valid) {
+              // Si no es válido, solo limpiar el canvas sin mostrar error
+              const ctx = barcodeCanvasRef.current.getContext('2d');
+              ctx.clearRect(0, 0, barcodeCanvasRef.current.width, barcodeCanvasRef.current.height);
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error generando código de barras:", error);
+        // Limpiar canvas en caso de error crítico
+        const ctx = barcodeCanvasRef.current.getContext('2d');
+        if (ctx) {
+            ctx.clearRect(0, 0, barcodeCanvasRef.current.width, barcodeCanvasRef.current.height);
+        }
+      }
+    }
+  }, [activeTool, barcodeValue, barcodeFormat, barcodeWidth, barcodeHeight, barcodeDisplayValue]);
 
   // Efecto para inicializar WaveSurfer
   React.useEffect(() => {
@@ -1260,6 +1304,17 @@ const FileConverter = () => {
               }`}
             >
               Generador UUID
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('barcode')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'barcode' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Código de Barras
             </button>
           </div>
         </div>
@@ -2975,6 +3030,177 @@ const FileConverter = () => {
                 <Download className="mr-2 h-4 w-4" />
                 Descargar .txt
               </Button>
+              <Button
+                onClick={async () => {
+                  const uuids = generatedUuids.split('\n').filter(Boolean);
+                  if (uuids.length === 0) return;
+                  const zip = new JSZip();
+                  let errorCount = 0;
+                  for (const uuid of uuids) {
+                    try {
+                      // CODE128 soporta cualquier UUID
+                      const canvas = document.createElement('canvas');
+                      JsBarcode(canvas, uuid, {
+                        format: 'CODE128',
+                        width: 2,
+                        height: 80,
+                        displayValue: false,
+                        margin: 10
+                      });
+                      const dataUrl = canvas.toDataURL('image/png');
+                      const base64 = dataUrl.split(',')[1];
+                      zip.file(`barcode-${uuid}.png`, base64, { base64: true });
+                    } catch (e) {
+                      errorCount++;
+                    }
+                  }
+                  const content = await zip.generateAsync({ type: 'blob' });
+                  const url = URL.createObjectURL(content);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `barcodes-uuids-${Date.now()}.zip`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  if (errorCount > 0) {
+                    toast({ title: 'Atención', description: `Algunos UUIDs no pudieron convertirse (${errorCount}).`, variant: 'destructive' });
+                  }
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Descargar en código de barras
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    ) : activeTool === 'barcode' ? (
+      <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Generador de Código de Barras</CardTitle>
+          <CardDescription>Crea códigos de barras personalizados en múltiples formatos.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Controles */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Texto / Datos</label>
+                <input
+                  type="text"
+                  value={barcodeValue}
+                  onChange={(e) => setBarcodeValue(e.target.value)}
+                  className="w-full p-2 rounded-md border bg-background"
+                  placeholder="Ej: 123456789"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Formato</label>
+                <Select value={barcodeFormat} onValueChange={setBarcodeFormat}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona formato" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CODE128">CODE128 (Auto)</SelectItem>
+                    <SelectItem value="CODE39">CODE39</SelectItem>
+                    <SelectItem value="EAN13">EAN13</SelectItem>
+                    <SelectItem value="UPC">UPC</SelectItem>
+                    <SelectItem value="ITF14">ITF14</SelectItem>
+                    <SelectItem value="MSI">MSI</SelectItem>
+                    <SelectItem value="pharmacode">Pharmacode</SelectItem>
+                  </SelectContent>
+                </Select>
+                {/* Mensajes de ayuda por formato */}
+                {barcodeFormat === 'CODE128' && (
+                  <div className="text-xs text-red-600 mt-1">Admite cualquier texto, números y símbolos.</div>
+                )}
+                {barcodeFormat === 'CODE39' && (
+                  <div className="text-xs text-red-600 mt-1">Solo letras mayúsculas (A-Z), números (0-9) y - . $ / + % espacio.</div>
+                )}
+                {barcodeFormat === 'EAN13' && (
+                  <div className="text-xs text-red-600 mt-1">Solo números (0-9). Debe tener 12 o 13 dígitos.</div>
+                )}
+                {barcodeFormat === 'UPC' && (
+                  <div className="text-xs text-red-600 mt-1">Solo números (0-9). Debe tener exactamente 12 dígitos.</div>
+                )}
+                {barcodeFormat === 'ITF14' && (
+                  <div className="text-xs text-red-600 mt-1">Solo números (0-9). Debe tener exactamente 14 dígitos.</div>
+                )}
+                {barcodeFormat === 'MSI' && (
+                  <div className="text-xs text-red-600 mt-1">Solo números (0-9). Longitud libre.</div>
+                )}
+                {barcodeFormat === 'pharmacode' && (
+                  <div className="text-xs text-red-600 mt-1">Solo números (0-9). Entre 3 y 131070.</div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Ancho de barra: {barcodeWidth}</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="4"
+                    step="1"
+                    value={barcodeWidth}
+                    onChange={(e) => setBarcodeWidth(parseInt(e.target.value))}
+                    className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Altura: {barcodeHeight}</label>
+                  <input
+                    type="range"
+                    min="30"
+                    max="150"
+                    value={barcodeHeight}
+                    onChange={(e) => setBarcodeHeight(parseInt(e.target.value))}
+                    className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="show-text"
+                  checked={barcodeDisplayValue}
+                  onChange={(e) => setBarcodeDisplayValue(e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="show-text" className="text-sm font-medium cursor-pointer">
+                  Mostrar texto debajo
+                </label>
+              </div>
+            </div>
+
+            {/* Vista Previa */}
+            <div className="flex flex-col items-center justify-center space-y-6 bg-muted/30 p-6 rounded-lg border">
+              <div className="bg-white p-4 rounded shadow-sm overflow-hidden max-w-full">
+                <canvas ref={barcodeCanvasRef} className="max-w-full h-auto" />
+              </div>
+              
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button 
+                  onClick={() => {
+                    if (barcodeCanvasRef.current) {
+                      const url = barcodeCanvasRef.current.toDataURL("image/png");
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `barcode-${barcodeValue}.png`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    }
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Descargar PNG
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>

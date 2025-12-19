@@ -33,6 +33,7 @@
     "gifuct-js": "^2.1.2",
     "html-pdf-node": "^1.0.8",
     "html2canvas": "^1.4.1",
+    "jsbarcode": "^3.12.1",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
     "jszip": "^3.10.1",
