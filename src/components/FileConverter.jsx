@@ -49,7 +49,8 @@ import { QrCode, Download, Palette, Type } from 'lucide-react';
 import JSZip from 'jszip';
 import { extractGifFrames } from '../lib/gifUtils';
 import exifr from 'exifr';
-import { Info, Scissors, Play, Pause, Volume2, RefreshCw } from 'lucide-react';
+import { Info, Scissors, Play, Pause, Volume2, RefreshCw, Trash2, Printer } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import { trimAudio } from '../lib/audioTrimmer';
@@ -199,6 +200,12 @@ const FileConverter = () => {
       generatePassword();
     }
   }, [activeTool, generatePassword, passwordLength, includeUppercase, includeLowercase, includeNumbers, includeSymbols]);
+
+  // Estados para Generador de Proxies
+  const [proxyImages, setProxyImages] = useState([]);
+  const [proxyPaperSize, setProxyPaperSize] = useState('A4'); // 'A4', 'Letter'
+  const [proxyCardSize, setProxyCardSize] = useState('standard'); // 'standard' (63x88), 'yugioh' (59x86)
+  const [isGeneratingProxy, setIsGeneratingProxy] = useState(false);
 
   // Estados para Generador de Código de Barras
   const [barcodeValue, setBarcodeValue] = useState('123456789');
@@ -1367,6 +1374,17 @@ const FileConverter = () => {
               }`}
             >
               Generador Contraseñas
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('proxies')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'proxies' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Generador Proxies
             </button>
           </div>
         </div>
@@ -3367,6 +3385,211 @@ const FileConverter = () => {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+    ) : activeTool === 'proxies' ? (
+      <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Generador de Proxies TCG</CardTitle>
+          <CardDescription>Crea hojas de proxies listas para imprimir. Sube tus imágenes y genera un PDF.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Upload Area */}
+          <div 
+            className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition-colors"
+            onClick={() => document.getElementById('proxy-upload')?.click()}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+              if (files.length > 0) setProxyImages(prev => [...prev, ...files]);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            <input 
+              id="proxy-upload" 
+              type="file" 
+              className="hidden" 
+              multiple
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files?.length) {
+                  setProxyImages(prev => [...prev, ...Array.from(e.target.files)]);
+                  e.target.value = ''; // Permitir seleccionar el mismo archivo nuevamente
+                }
+              }} 
+            />
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <UploadCloud className="h-12 w-12" />
+              <p className="font-semibold">Sube tus cartas aquí</p>
+              <p className="text-sm">Arrastra imágenes o haz clic para seleccionar</p>
+            </div>
+          </div>
+
+          {/* Settings & Actions */}
+          <div className="flex flex-wrap gap-4 justify-between items-center bg-secondary/20 p-4 rounded-lg border">
+            <div className="flex gap-4 flex-wrap">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Tamaño Papel</label>
+                <Select value={proxyPaperSize} onValueChange={setProxyPaperSize}>
+                  <SelectTrigger className="w-[120px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A4">A4</SelectItem>
+                    <SelectItem value="Letter">Carta (Letter)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Tamaño Carta</label>
+                <Select value={proxyCardSize} onValueChange={setProxyCardSize}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Estándar (63x88mm)</SelectItem>
+                    <SelectItem value="yugioh">Yu-Gi-Oh (59x86mm)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => setProxyImages([])}
+                disabled={proxyImages.length === 0}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Limpiar Todo
+              </Button>
+              <Button 
+                size="sm"
+                onClick={async () => {
+                  if (proxyImages.length === 0) return;
+                  setIsGeneratingProxy(true);
+                  try {
+                    const doc = new jsPDF({
+                      orientation: 'portrait',
+                      unit: 'mm',
+                      format: proxyPaperSize.toLowerCase()
+                    });
+
+                    const pageWidth = proxyPaperSize === 'A4' ? 210 : 215.9;
+                    const pageHeight = proxyPaperSize === 'A4' ? 297 : 279.4;
+                    
+                    const cardWidth = proxyCardSize === 'standard' ? 63 : 59;
+                    const cardHeight = proxyCardSize === 'standard' ? 88 : 86;
+                    
+                    // 3x3 grid
+                    const cols = 3;
+                    const rows = 3;
+                    const cardsPerPage = cols * rows;
+                    
+                    const marginX = (pageWidth - (cols * cardWidth)) / 2;
+                    const marginY = (pageHeight - (rows * cardHeight)) / 2;
+
+                    for (let i = 0; i < proxyImages.length; i++) {
+                      if (i > 0 && i % cardsPerPage === 0) {
+                        doc.addPage();
+                      }
+
+                      const pageIndex = i % cardsPerPage;
+                      const col = pageIndex % cols;
+                      const row = Math.floor(pageIndex / cols);
+                      
+                      const x = marginX + (col * cardWidth);
+                      const y = marginY + (row * cardHeight);
+
+                      // Convert image to base64
+                      const imgData = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.readAsDataURL(proxyImages[i]);
+                      });
+
+                      doc.addImage(imgData, 'JPEG', x, y, cardWidth, cardHeight);
+                      
+                      // Optional: Add cut lines
+                      doc.setDrawColor(200);
+                      doc.rect(x, y, cardWidth, cardHeight);
+                    }
+
+                    doc.save(`proxies-${Date.now()}.pdf`);
+                    toast({
+                      title: 'PDF Generado',
+                      description: 'Tu archivo de proxies se ha descargado correctamente.',
+                    });
+                  } catch (error) {
+                    console.error(error);
+                    toast({
+                      title: 'Error',
+                      description: 'Hubo un error al generar el PDF.',
+                      variant: 'destructive'
+                    });
+                  } finally {
+                    setIsGeneratingProxy(false);
+                  }
+                }}
+                disabled={proxyImages.length === 0 || isGeneratingProxy}
+              >
+                {isGeneratingProxy ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Printer className="mr-2 h-4 w-4" />
+                )}
+                Generar PDF
+              </Button>
+            </div>
+          </div>
+
+          {/* Grid View */}
+          {proxyImages.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[500px] overflow-y-auto p-4 bg-secondary/10 rounded-lg">
+              {proxyImages.map((img, idx) => (
+                <div key={idx} className="relative group aspect-[63/88] bg-background rounded-lg shadow-sm overflow-hidden border">
+                  <img 
+                    src={URL.createObjectURL(img)} 
+                    alt={`Card ${idx + 1}`} 
+                    className="w-full h-full object-cover" 
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Duplicar"
+                      onClick={() => {
+                        setProxyImages(prev => {
+                          const newImages = [...prev];
+                          newImages.splice(idx + 1, 0, img);
+                          return newImages;
+                        });
+                      }}
+                    >
+                      <span className="text-xs font-bold">+1</span>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Eliminar"
+                      onClick={() => {
+                        setProxyImages(prev => prev.filter((_, i) => i !== idx));
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 text-center truncate">
+                    {img.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     ) : null}
