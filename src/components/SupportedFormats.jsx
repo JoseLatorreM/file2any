@@ -36,7 +36,7 @@ const formatCategories = [
   {
     name: 'Herramientas',
     icon: <Wrench className="h-8 w-8 text-yellow-500" />,
-    formats: ['Recorte Audio', 'Frames GIF', 'Metadatos', 'Generador QR', 'Codigo de Barras', 'Generador de UUIDs', 'Creador de Gifs'],
+    formats: ['Recorte Audio', 'Frames GIF', 'Metadatos', 'Generador QR', 'Codigo de Barras', 'Generador de UUIDs', 'Creador de Gifs', 'Generador de Contraseñas'],
   },
 ];
 

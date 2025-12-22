@@ -49,7 +49,7 @@ import { QrCode, Download, Palette, Type } from 'lucide-react';
 import JSZip from 'jszip';
 import { extractGifFrames } from '../lib/gifUtils';
 import exifr from 'exifr';
-import { Info, Scissors, Play, Pause, Volume2 } from 'lucide-react';
+import { Info, Scissors, Play, Pause, Volume2, RefreshCw } from 'lucide-react';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import { trimAudio } from '../lib/audioTrimmer';
@@ -158,6 +158,47 @@ const FileConverter = () => {
       generateUuids();
     }
   }, [uuidCount, activeTool, generateUuids]);
+
+  // Estados para Generador de Contraseñas
+  const [passwordLength, setPasswordLength] = useState(16);
+  const [includeUppercase, setIncludeUppercase] = useState(true);
+  const [includeLowercase, setIncludeLowercase] = useState(true);
+  const [includeNumbers, setIncludeNumbers] = useState(true);
+  const [includeSymbols, setIncludeSymbols] = useState(true);
+  const [generatedPassword, setGeneratedPassword] = useState('');
+
+  const generatePassword = useCallback(() => {
+    const uppercaseChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercaseChars = 'abcdefghijklmnopqrstuvwxyz';
+    const numberChars = '0123456789';
+    const symbolChars = '!@#$%^&*()_+~`|}{[]:;?><,./-=';
+
+    let charset = '';
+    if (includeUppercase) charset += uppercaseChars;
+    if (includeLowercase) charset += lowercaseChars;
+    if (includeNumbers) charset += numberChars;
+    if (includeSymbols) charset += symbolChars;
+
+    if (charset === '') {
+      setGeneratedPassword('');
+      return;
+    }
+
+    let password = '';
+    const array = new Uint32Array(passwordLength);
+    crypto.getRandomValues(array);
+    for (let i = 0; i < passwordLength; i++) {
+      password += charset[array[i] % charset.length];
+    }
+    setGeneratedPassword(password);
+  }, [passwordLength, includeUppercase, includeLowercase, includeNumbers, includeSymbols]);
+
+  // Regenerar contraseña cuando cambian las opciones o se activa la herramienta
+  React.useEffect(() => {
+    if (activeTool === 'password') {
+      generatePassword();
+    }
+  }, [activeTool, generatePassword, passwordLength, includeUppercase, includeLowercase, includeNumbers, includeSymbols]);
 
   // Estados para Generador de Código de Barras
   const [barcodeValue, setBarcodeValue] = useState('123456789');
@@ -1315,6 +1356,17 @@ const FileConverter = () => {
               }`}
             >
               Código de Barras
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('password')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'password' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Generador Contraseñas
             </button>
           </div>
         </div>
@@ -3000,7 +3052,7 @@ const FileConverter = () => {
               />
             </div>
 
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-wrap gap-4 justify-center">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -3201,6 +3253,118 @@ const FileConverter = () => {
                   Descargar PNG
                 </Button>
               </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    ) : activeTool === 'password' ? (
+      <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Generador de Contraseñas</CardTitle>
+          <CardDescription>Crea contraseñas seguras y personalizadas al instante.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-6 max-w-2xl mx-auto">
+            {/* Display de Contraseña */}
+            <div className="relative">
+              <div className="w-full p-4 text-center font-mono text-xl sm:text-2xl bg-muted/50 rounded-lg border break-all min-h-[4rem] flex items-center justify-center">
+                {generatedPassword || <span className="text-muted-foreground text-sm">Selecciona al menos una opción</span>}
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+                onClick={() => {
+                  if (generatedPassword) {
+                    navigator.clipboard.writeText(generatedPassword);
+                    toast({
+                      title: 'Copiado',
+                      description: 'Contraseña copiada al portapapeles',
+                    });
+                  }
+                }}
+                disabled={!generatedPassword}
+              >
+                <File className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Controles */}
+            <div className="space-y-6 bg-secondary/20 p-6 rounded-lg border">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <label className="text-sm font-medium">Longitud: {passwordLength}</label>
+                </div>
+                <input
+                  type="range"
+                  min="4"
+                  max="64"
+                  value={passwordLength}
+                  onChange={(e) => setPasswordLength(parseInt(e.target.value))}
+                  className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="include-uppercase"
+                    checked={includeUppercase}
+                    onChange={(e) => setIncludeUppercase(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <label htmlFor="include-uppercase" className="text-sm font-medium cursor-pointer select-none">
+                    Mayúsculas (A-Z)
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="include-lowercase"
+                    checked={includeLowercase}
+                    onChange={(e) => setIncludeLowercase(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <label htmlFor="include-lowercase" className="text-sm font-medium cursor-pointer select-none">
+                    Minúsculas (a-z)
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="include-numbers"
+                    checked={includeNumbers}
+                    onChange={(e) => setIncludeNumbers(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <label htmlFor="include-numbers" className="text-sm font-medium cursor-pointer select-none">
+                    Números (0-9)
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="include-symbols"
+                    checked={includeSymbols}
+                    onChange={(e) => setIncludeSymbols(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <label htmlFor="include-symbols" className="text-sm font-medium cursor-pointer select-none">
+                    Símbolos (!@#$)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Button 
+                onClick={generatePassword}
+                className="w-full sm:w-auto min-w-[150px]"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Regenerar
+              </Button>
             </div>
           </div>
         </CardContent>
