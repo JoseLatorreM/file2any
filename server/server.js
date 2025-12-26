@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -15,9 +14,9 @@ const execAsync = promisify(exec);
 // En producción, Hostinger suele usar 'localhost' si el Node.js corre en el mismo servidor que MySQL.
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost', 
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  user: process.env.DB_USER || 'u961483530_Shin',      // Usuario de Hostinger
+  password: process.env.DB_PASSWORD || 'qE~#ppl4',      // Contraseña de Hostinger
+  database: process.env.DB_NAME || 'u961483530_Comentarios', // Base de datos de Hostinger
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -49,7 +48,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3001;
 
 // Lista de orígenes permitidos
 const allowedOrigins = [

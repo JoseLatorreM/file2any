@@ -13,7 +13,8 @@ import Footer from './components/Footer';
 import BuyMeACoffeeWidget from './components/BuyMeACoffeeWidget';
 import { Toaster } from './components/ui/toaster';
 import { Loader2, FileText, Image } from 'lucide-react';
-import Snowfall from 'react-snowfall';
+// import Snowfall from 'react-snowfall';
+import ConfettiSideCannons from './components/ConfettiSideCannons';
 // import { Youtube } from 'lucide-react'; // Deshabilitado temporalmente
 
 function App() {
@@ -43,7 +44,7 @@ function App() {
         <html lang={t('lang', { defaultValue: 'es' })} />
       </Helmet>
       
-      <Snowfall 
+      {/* <Snowfall 
         color={theme === 'dark' ? '#ffffff' : '#0EA5E9'}
         style={{
           position: 'fixed',
@@ -53,7 +54,7 @@ function App() {
           pointerEvents: 'none'
         }}
         snowflakeCount={80}
-      />
+      /> */}
       
       <AnimatePresence>
         {loading && (
@@ -73,6 +74,7 @@ function App() {
 
       {!loading && (
         <div className={`min-h-screen bg-background font-sans antialiased ${theme}`}>
+          <ConfettiSideCannons />
           <Header theme={theme} setTheme={setTheme} />
           <main>
             {/* Tabs for switching between single and batch conversion */}
