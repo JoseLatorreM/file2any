@@ -1,0 +1,29 @@
+{
+  "app": {
+    "title": "Files2Any - Free and Secure File Converter",
+    "description": "Convert documents, images, audio, and video quickly and securely. Files2Any is your free online conversion tool, ad-free and no registration required.",
+    "batchTitle": "Batch Image Conversion - Files2Any",
+    "batchDescription": "Convert multiple images at once. Fast and free batch processing tool to optimize, resize, and convert formats.",
+    "loading": "Loading Files2Any...",
+    "singleConversion": "Single Conversion",
+    "batchConversion": "Batch Conversion"
+  },
+  "header": {
+    "themeChanged": "Switched to {{theme}} mode",
+    "interfaceUpdated": "Interface updated!",
+    "light": "light",
+    "dark": "dark",
+    "changeTheme": "Change theme",
+    "changeLanguage": "Change language",
+    "buyMeACoffee": "Buy me a coffee"
+  },
+  "hero": {
+    "users": "users",
+    "files": "files",
+    "titlePrefix": "Convert",
+    "titleHighlight": "Any File",
+    "titleSuffix": "Instantly",
+    "description": "The most reliable platform to convert documents, images, audio, and video.",
+    "descriptionStrong": "Free, secure, and no registration."
+  }
+}

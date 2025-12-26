@@ -123,7 +123,7 @@ const CommentsSection = () => {
   // Si estamos en producción (Hostinger sin Node), usamos api.php
   // Si estamos en local, usamos el servidor Node.js
   const isProduction = import.meta.env.PROD; 
-  const API_ENDPOINT = isProduction ? '/api.php' : 'http://localhost:3001/api/comments';
+  const API_ENDPOINT = isProduction ? '/api.php' : 'http://localhost:3002/api/comments';
 
   const getUrl = (action, id = null) => {
     if (isProduction) {

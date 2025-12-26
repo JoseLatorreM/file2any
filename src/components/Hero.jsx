@@ -2,8 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowDown, Star, Users, FileCheck, Shield, Zap, FileText } from 'lucide-react';
 import { Button } from './ui/button';
+import { useTranslation } from 'react-i18next';
 
 const Hero = () => {
+  const { t } = useTranslation();
   const scrollToConverter = () => {
     document.getElementById('converter').scrollIntoView({ behavior: 'smooth' });
   };
@@ -28,25 +30,25 @@ const Hero = () => {
               <div className="w-px h-4 bg-border"></div>
               <div className="flex items-center space-x-1">
                 <Users className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium">50K+ usuarios</span>
+                <span className="text-sm font-medium">50K+ {t('hero.users')}</span>
               </div>
               <div className="w-px h-4 bg-border"></div>
               <div className="flex items-center space-x-1">
                 <FileCheck className="h-4 w-4 text-green-500" />
-                <span className="text-sm font-medium">1M+ archivos</span>
+                <span className="text-sm font-medium">1M+ {t('hero.files')}</span>
               </div>
             </div>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            Convierte <span className="text-gradient">Cualquier Archivo</span>
+            {t('hero.titlePrefix')} <span className="text-gradient">{t('hero.titleHighlight')}</span>
             <br />
-            de Forma Instantánea
+            {t('hero.titleSuffix')}
           </h1>
 
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
-            La plataforma más confiable para convertir documentos, imágenes, audio y video. 
-            <strong className="text-foreground"> Gratis, seguro y sin registro.</strong>
+            {t('hero.description')} 
+            <strong className="text-foreground"> {t('hero.descriptionStrong')}</strong>
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">

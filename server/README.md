@@ -59,7 +59,7 @@ Archivo binario (video o audio)
 
 ## Variables de Entorno
 
-- `PORT`: Puerto del servidor (default: 3001)
+- `PORT`: Puerto del servidor (default: 3002)
 - `FRONTEND_URL`: URL del frontend para CORS
 - `NODE_ENV`: Entorno de ejecución
 

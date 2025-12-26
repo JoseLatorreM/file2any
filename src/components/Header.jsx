@@ -1,10 +1,12 @@
 import React from 'react';
-import { FileTerminal, Moon, Sun } from 'lucide-react';
+import { FileTerminal, Moon, Sun, Languages, Coffee } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from './ui/use-toast';
+import { useTranslation } from 'react-i18next';
 
 const Header = ({ theme, setTheme }) => {
   const { toast } = useToast();
+  const { t, i18n } = useTranslation();
   const [isToggling, setIsToggling] = React.useState(false);
 
   const toggleTheme = () => {
@@ -15,14 +17,19 @@ const Header = ({ theme, setTheme }) => {
     setTheme(newTheme);
     
     toast({
-      title: `Cambiado a modo ${newTheme === 'light' ? 'claro' : 'oscuro'}`,
-      description: '¡La interfaz se ha actualizado!',
+      title: t('header.themeChanged', { theme: newTheme === 'light' ? t('header.light') : t('header.dark') }),
+      description: t('header.interfaceUpdated'),
     });
 
     // Cooldown de 1 segundo para evitar spam
     setTimeout(() => {
       setIsToggling(false);
     }, 1000);
+  };
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'es' ? 'en' : 'es';
+    i18n.changeLanguage(newLang);
   };
 
   return (
@@ -32,11 +39,25 @@ const Header = ({ theme, setTheme }) => {
           <FileTerminal className="h-8 w-8 text-primary" />
           <span className="text-xl font-bold">Files2Any</span>
         </div>
-        <Button onClick={toggleTheme} variant="ghost" size="icon">
-          <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Cambiar tema</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={toggleLanguage} variant="ghost" size="sm" className="w-12">
+            <span className="font-bold">{i18n.language === 'es' ? 'ES' : 'EN'}</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => window.open('https://buymeacoffee.com/shindara', '_blank')}
+            title={t('header.buyMeACoffee')}
+          >
+            <Coffee className="h-[1.2rem] w-[1.2rem]" />
+            <span className="sr-only">{t('header.buyMeACoffee')}</span>
+          </Button>
+          <Button onClick={toggleTheme} variant="ghost" size="icon">
+            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">{t('header.changeTheme')}</span>
+          </Button>
+        </div>
       </div>
     </header>
   );

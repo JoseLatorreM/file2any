@@ -48,7 +48,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 
 // Lista de orígenes permitidos
 const allowedOrigins = [
@@ -474,6 +474,29 @@ app.post('/api/comments/:id/like', async (req, res) => {
 });
 
 // --- FIN RUTAS COMENTARIOS ---
+
+// --- RUTAS SPEEDTEST ---
+// Endpoint de descarga: Genera datos aleatorios para probar la velocidad de bajada
+app.get('/api/speedtest/download', (req, res) => {
+  const size = 10 * 1024 * 1024; // 10MB por defecto
+  const buffer = Buffer.alloc(size, 'a'); // Llenar con 'a' es rápido
+  res.set({
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': size,
+    'Cache-Control': 'no-store'
+  });
+  res.send(buffer);
+});
+
+// Endpoint de subida: Recibe datos y los descarta para probar la velocidad de subida
+app.post('/api/speedtest/upload', express.raw({ limit: '50mb', type: '*/*' }), (req, res) => {
+  // Express ya ha leído el body en memoria si usamos el middleware adecuado, 
+  // o podemos usar streams para no saturar RAM.
+  // Para simplificar y dado que express.raw lee todo, solo respondemos OK.
+  // El tiempo que tarda en llegar aquí es el tiempo de subida.
+  res.sendStatus(200);
+});
+// --- FIN RUTAS SPEEDTEST ---
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

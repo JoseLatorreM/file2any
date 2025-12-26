@@ -62,6 +62,7 @@ import {
   getVideoType,
   VIDEO_CONVERSION_OPTIONS
 } from '../lib/videoConverters';
+import SpeedTest from './SpeedTest';
 
 const FileConverter = () => {
   const [file, setFile] = useState(null);
@@ -1385,6 +1386,17 @@ const FileConverter = () => {
               }`}
             >
               Generador Proxies
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTool('speedtest')}
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                activeTool === 'speedtest' 
+                  ? 'bg-background text-primary shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Test Velocidad
             </button>
           </div>
         </div>
@@ -3114,7 +3126,8 @@ const FileConverter = () => {
                         format: 'CODE128',
                         width: 2,
                         height: 80,
-                        displayValue: false,
+                        displayValue: true,
+                        fontSize: 14,
                         margin: 10
                       });
                       const dataUrl = canvas.toDataURL('image/png');
@@ -3275,6 +3288,8 @@ const FileConverter = () => {
           </div>
         </CardContent>
       </Card>
+    ) : activeTool === 'speedtest' ? (
+      <SpeedTest />
     ) : activeTool === 'password' ? (
       <Card className="shadow-2xl bg-card/80 backdrop-blur-lg">
         <CardHeader className="text-center">

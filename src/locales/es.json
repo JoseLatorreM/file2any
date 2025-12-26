@@ -1,0 +1,29 @@
+{
+  "app": {
+    "title": "Files2Any - Conversor de Archivos Gratuito y Seguro",
+    "description": "Convierte documentos, imágenes, audio y video de forma rápida y segura. Files2Any es tu herramienta de conversión online gratuita, sin anuncios y sin registro.",
+    "batchTitle": "Conversión por Lotes de Imágenes - Files2Any",
+    "batchDescription": "Convierte múltiples imágenes a la vez. Herramienta de procesamiento por lotes rápida y gratuita para optimizar, redimensionar y convertir formatos.",
+    "loading": "Cargando Files2Any...",
+    "singleConversion": "Conversión Individual",
+    "batchConversion": "Conversión por Lotes"
+  },
+  "header": {
+    "themeChanged": "Cambiado a modo {{theme}}",
+    "interfaceUpdated": "¡La interfaz se ha actualizado!",
+    "light": "claro",
+    "dark": "oscuro",
+    "changeTheme": "Cambiar tema",
+    "changeLanguage": "Cambiar idioma",
+    "buyMeACoffee": "Invítame un café"
+  },
+  "hero": {
+    "users": "usuarios",
+    "files": "archivos",
+    "titlePrefix": "Convierte",
+    "titleHighlight": "Cualquier Archivo",
+    "titleSuffix": "de Forma Instantánea",
+    "description": "La plataforma más confiable para convertir documentos, imágenes, audio y video.",
+    "descriptionStrong": "Gratis, seguro y sin registro."
+  }
+}

@@ -18,7 +18,7 @@ const YouTubeDownloader = () => {
   // URL del backend: en desarrollo usa proxy local, en producción usa Render
   // IMPORTANTE: Después de desplegar en Render, reemplaza la URL con la tuya
   const API_URL = import.meta.env.DEV 
-    ? '' // En desarrollo, Vite proxy redirige a localhost:3001
+    ? '' // En desarrollo, Vite proxy redirige a localhost:3002
     : (import.meta.env.VITE_API_URL || 'https://file2any-api.onrender.com');
 
   const validateYouTubeUrl = (url) => {

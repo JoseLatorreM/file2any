@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import FileConverter from './components/FileConverter';
@@ -9,12 +10,14 @@ import Features from './components/Features';
 import SupportedFormats from './components/SupportedFormats';
 import CommentsSection from './components/CommentsSection';
 import Footer from './components/Footer';
+import BuyMeACoffeeWidget from './components/BuyMeACoffeeWidget';
 import { Toaster } from './components/ui/toaster';
 import { Loader2, FileText, Image } from 'lucide-react';
 import Snowfall from 'react-snowfall';
 // import { Youtube } from 'lucide-react'; // Deshabilitado temporalmente
 
 function App() {
+  const { t } = useTranslation();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('single'); // 'single' or 'batch' (youtube deshabilitado)
@@ -34,8 +37,10 @@ function App() {
   return (
     <>
       <Helmet>
-        <title>Files2Any - Conversor de Archivos Gratuito y Seguro</title>
-        <meta name="description" content="Convierte documentos, imágenes, audio y video de forma rápida y segura. Files2Any es tu herramienta de conversión online gratuita, sin anuncios y sin registro." />
+        <title>{activeTab === 'batch' ? t('app.batchTitle') : t('app.title')}</title>
+        <meta name="description" content={activeTab === 'batch' ? t('app.batchDescription') : t('app.description')} />
+        <link rel="canonical" href={`https://files2any.com/${activeTab === 'batch' ? '#batch' : ''}`} />
+        <html lang={t('lang', { defaultValue: 'es' })} />
       </Helmet>
       
       <Snowfall 
@@ -60,7 +65,7 @@ function App() {
           >
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-lg font-medium text-muted-foreground">Cargando Files2Any...</p>
+              <p className="text-lg font-medium text-muted-foreground">{t('app.loading')}</p>
             </div>
           </motion.div>
         )}
@@ -84,7 +89,7 @@ function App() {
                       }`}
                     >
                       <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="whitespace-nowrap">Conversión Individual</span>
+                      <span className="whitespace-nowrap">{t('app.singleConversion')}</span>
                     </button>
                     <button
                       onClick={() => setActiveTab('batch')}
@@ -95,7 +100,7 @@ function App() {
                       }`}
                     >
                       <Image className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="whitespace-nowrap">Conversión por Lotes</span>
+                      <span className="whitespace-nowrap">{t('app.batchConversion')}</span>
                     </button>
                     {/* YouTube Downloader deshabilitado temporalmente - YouTube bloquea IPs de datacenter
                     <button
@@ -157,6 +162,7 @@ function App() {
             <CommentsSection />
           </main>
           <Footer />
+          <BuyMeACoffeeWidget />
           <Toaster />
         </div>
       )}

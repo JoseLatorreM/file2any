@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://files2any.com/sitemap.xml
