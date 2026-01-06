@@ -14,7 +14,9 @@ const CommentCard = ({ comment, index, likedComments, handleLike }) => {
     ? comment.comment 
     : `${comment.comment.substring(0, maxLength)}...`;
 
+  // NULL = por defecto, 0 = no es posible (rojo), 1 = implementado (verde)
   const isImplemented = comment.is_implemented == 1;
+  const isNotPossible = comment.is_implemented == 0;
 
   return (
     <motion.div
@@ -25,6 +27,8 @@ const CommentCard = ({ comment, index, likedComments, handleLike }) => {
       transition={{ duration: 0.2, delay: index * 0.05 }}
       className={`bg-card border rounded-lg p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow min-h-[340px] ${
         isImplemented ? 'border-emerald-500 ring-1 ring-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/10' : ''
+      } ${
+        isNotPossible ? 'border-red-500 ring-1 ring-red-500/20 bg-red-50/50 dark:bg-red-950/10' : ''
       }`}
     >
       <div>
@@ -98,6 +102,14 @@ const CommentCard = ({ comment, index, likedComments, handleLike }) => {
           <div className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1 rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
             <CheckCircle2 className="h-3.5 w-3.5" />
             <span className="text-xs font-bold tracking-wide">¡Implementado!</span>
+          </div>
+        )}
+        {isNotPossible && (
+          <div className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span className="text-xs font-bold tracking-wide">No es posible</span>
           </div>
         )}
       </div>

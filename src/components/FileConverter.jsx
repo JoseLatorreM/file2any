@@ -62,6 +62,7 @@ import {
   getVideoType,
   VIDEO_CONVERSION_OPTIONS
 } from '../lib/videoConverters';
+import { pdfToEpub, textToEpub, epubToPdf, epubToTxt } from '../lib/ebookConverters';
 import SpeedTest from './SpeedTest';
 
 const FileConverter = () => {
@@ -539,6 +540,45 @@ const FileConverter = () => {
         setIsConverting(false);
         return;
       }
+      // PDF → EPUB
+      else if (fileName.endsWith('.pdf') && outputFormat === 'EPUB') {
+        blob = await pdfToEpub(file);
+        url = URL.createObjectURL(blob);
+      }
+
+      // TXT → EPUB
+      else if (fileName.endsWith('.txt') && outputFormat === 'EPUB') {
+        blob = await textToEpub(file);
+        url = URL.createObjectURL(blob);
+      }
+      // TXT → PDF
+      else if (fileName.endsWith('.txt') && outputFormat === 'PDF') {
+        const doc = new jsPDF();
+        const text = await file.text();
+        const splitText = doc.splitTextToSize(text, 180);
+        let y = 10;
+        splitText.forEach(line => {
+            if (y > 280) {
+                doc.addPage();
+                y = 10;
+            }
+            doc.text(line, 10, y);
+            y += 7;
+        });
+        blob = doc.output('blob');
+        url = URL.createObjectURL(blob);
+      }
+
+      // EPUB → PDF
+      else if (fileName.endsWith('.epub') && outputFormat === 'PDF') {
+        blob = await epubToPdf(file);
+        url = URL.createObjectURL(blob);
+      }
+      // EPUB → TXT
+      else if (fileName.endsWith('.epub') && outputFormat === 'TXT') {
+        blob = await epubToTxt(file);
+        url = URL.createObjectURL(blob);
+      }
 
       // DOCX → TXT
       else if (fileName.endsWith('.docx') && outputFormat === 'TXT') {
@@ -829,6 +869,8 @@ const FileConverter = () => {
       else if (fileName.endsWith('.docx')) fileExtension = '.docx';
       else if (fileName.endsWith('.xlsx')) fileExtension = '.xlsx';
       else if (fileName.endsWith('.xls')) fileExtension = '.xls';
+      else if (fileName.endsWith('.txt')) fileExtension = '.txt';
+      else if (fileName.endsWith('.epub')) fileExtension = '.epub';
       else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) fileExtension = '.jpg';
       else if (fileName.endsWith('.png')) fileExtension = '.png';
       else if (fileName.endsWith('.gif')) fileExtension = '.gif';
@@ -875,6 +917,7 @@ const FileConverter = () => {
         'xml': '.xml',
         'json': '.json',
         'csv': '.csv',
+        'epub': '.epub',
         'obj': '.obj',
         'stl': '.stl',
         '3mf': '.3mf',
@@ -1126,7 +1169,13 @@ const FileConverter = () => {
 
   // Opciones de conversión para cada formato centralizadas en sus módulos
 
-  const PDF_CONVERSION_OPTIONS = ['DOCX', 'TXT', 'MD', 'PNG', 'JPG'];
+  const PDF_CONVERSION_OPTIONS = ['DOCX', 'TXT', 'MD', 'PNG', 'JPG', 'EPUB'];
+  
+  // Opciones de conversión para TXT
+  const TXT_CONVERSION_OPTIONS = ['EPUB', 'PDF'];
+
+  // Opciones de conversión para EPUB
+  const EPUB_CONVERSION_OPTIONS = ['PDF', 'TXT'];
 
   // Opciones de conversión para PPTX
   const PPTX_CONVERSION_OPTIONS = ['PDF', 'PNG', 'JPG', 'TXT'];
@@ -1183,6 +1232,8 @@ const FileConverter = () => {
     if (fileName.endsWith('.csv')) return CSV_CONVERSION_OPTIONS;
     if (fileName.endsWith('.json')) return JSON_CONVERSION_OPTIONS;
     if (fileName.endsWith('.xml')) return XML_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.txt')) return TXT_CONVERSION_OPTIONS;
+    if (fileName.endsWith('.epub')) return EPUB_CONVERSION_OPTIONS;
     
     // Detectar formatos de imagen
     if (
@@ -1748,14 +1799,14 @@ const FileConverter = () => {
                         id="file-upload" 
                         type="file" 
                         className="hidden" 
-                        accept=".pdf,.docx,.xlsx,.xls,.pptx,.csv,.json,.xml,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.tiff,.avif,.ico,.heif,.mp3,.wav,.flac,.aac,.ogg,.opus,.m4a,.wma,.aiff"
+                        accept=".pdf,.docx,.xlsx,.xls,.pptx,.csv,.json,.xml,.txt,.epub,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.tiff,.avif,.ico,.heif,.mp3,.wav,.flac,.aac,.ogg,.opus,.m4a,.wma,.aiff"
                         onChange={handleFileChange} 
                       />
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <UploadCloud className="h-12 w-12" />
                         <p className="font-semibold">Arrastra y suelta tu archivo aquí</p>
                         <p className="text-sm">o haz clic para seleccionar</p>
-                        <p className="text-xs text-muted-foreground mt-2">Soporta: PDF, DOCX, XLSX, CSV, JSON, XML, imágenes (JPG, PNG, etc) y audio (MP3, WAV, etc)</p>
+                        <p className="text-xs text-muted-foreground mt-2">Soporta: PDF, DOCX, XLSX, CSV, JSON, XML, TXT, EPUB, imágenes y audio</p>
                       </div>
                     </div>
                   </motion.div>

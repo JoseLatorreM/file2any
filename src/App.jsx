@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import FileConverter from './components/FileConverter';
 import BatchImageConverter from './components/BatchImageConverter';
+import FloorPlanEditor from './components/FloorPlanEditor';
 // import YouTubeDownloader from './components/YouTubeDownloader'; // Deshabilitado temporalmente - YouTube bloquea IPs de datacenter
 import Features from './components/Features';
 import SupportedFormats from './components/SupportedFormats';
@@ -12,8 +13,8 @@ import CommentsSection from './components/CommentsSection';
 import Footer from './components/Footer';
 import BuyMeACoffeeWidget from './components/BuyMeACoffeeWidget';
 import { Toaster } from './components/ui/toaster';
-import { Loader2, FileText, Image } from 'lucide-react';
-import Snowfall from 'react-snowfall';
+import { Loader2, FileText, Image, Home } from 'lucide-react';
+import SummerEffect from './components/SummerEffect';
 // import { Youtube } from 'lucide-react'; // Deshabilitado temporalmente
 
 function App() {
@@ -43,17 +44,8 @@ function App() {
         <html lang={t('lang', { defaultValue: 'es' })} />
       </Helmet>
       
-      <Snowfall 
-        color={theme === 'dark' ? '#ffffff' : '#0EA5E9'}
-        style={{
-          position: 'fixed',
-          width: '100vw',
-          height: '100vh',
-          zIndex: 50,
-          pointerEvents: 'none'
-        }}
-        snowflakeCount={80}
-      />
+      {/* Efecto de verano - burbujas y destellos */}
+      <SummerEffect theme={theme} particleCount={30} />
       
       <AnimatePresence>
         {loading && (
@@ -102,6 +94,17 @@ function App() {
                       <Image className="w-4 h-4 sm:w-5 sm:h-5" />
                       <span className="whitespace-nowrap">{t('app.batchConversion')}</span>
                     </button>
+                    <button
+                      onClick={() => setActiveTab('floorplan')}
+                      className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-md font-medium transition-all text-sm sm:text-base ${
+                        activeTab === 'floorplan'
+                          ? 'bg-background text-primary shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="whitespace-nowrap">{t('app.floorPlan', 'Editor de Planos')}</span>
+                    </button>
                     {/* YouTube Downloader deshabilitado temporalmente - YouTube bloquea IPs de datacenter
                     <button
                       onClick={() => setActiveTab('youtube')}
@@ -139,6 +142,16 @@ function App() {
                       transition={{ duration: 0.3 }}
                     >
                       <BatchImageConverter />
+                    </motion.div>
+                  ) : activeTab === 'floorplan' ? (
+                    <motion.div
+                      key="floorplan"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <FloorPlanEditor />
                     </motion.div>
                   ) : null}
                   {/* YouTube Downloader deshabilitado temporalmente

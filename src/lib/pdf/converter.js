@@ -219,3 +219,128 @@ export async function pdfToDocx(file) {
 }
 
 export const PDF_CONVERSION_OPTIONS = ['DOCX', 'TXT', 'MD', 'PNG', 'JPG'];
+
+/**
+ * Extrae HTML estructurado de un PDF
+ * @param {File} file - Archivo PDF
+ * @returns {Promise<string>} - String HTML
+ */
+export async function pdfToHtml(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let html = '';
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    
+    // 1. Ordenar items por posición Y (arriba a abajo) y luego X (izquierda a derecha)
+    const items = textContent.items.sort((a, b) => {
+      const yA = a.transform[5];
+      const yB = b.transform[5];
+      if (Math.abs(yA - yB) > 4) { // Tolerancia vertical
+        return yB - yA; // Descendente
+      }
+      return a.transform[4] - b.transform[4]; // Ascendente
+    });
+
+    // 2. Agrupar items en líneas
+    const lines = [];
+    let currentLine = [];
+    let lastY = null;
+
+    items.forEach(item => {
+      const y = item.transform[5];
+      if (lastY === null || Math.abs(y - lastY) < 4) {
+        currentLine.push(item);
+      } else {
+        lines.push(currentLine);
+        currentLine = [item];
+      }
+      lastY = y;
+    });
+    if (currentLine.length > 0) lines.push(currentLine);
+
+    // 3. Procesar líneas para reconstruir párrafos y estructura
+    let currentParagraphLines = [];
+    let lastLineY = null;
+    let lastLineFontSize = null;
+    
+    const flushParagraph = () => {
+        if (currentParagraphLines.length === 0) return;
+        
+        // Detectar encabezados basado en tamaño de fuente
+        const firstItem = currentParagraphLines[0][0];
+        const fontSize = Math.sqrt((firstItem.transform[0] * firstItem.transform[0]));
+        
+        let tag = 'p';
+        if (fontSize > 18) tag = 'h1';
+        else if (fontSize > 15) tag = 'h2';
+        else if (fontSize > 13) tag = 'h3';
+
+        let paragraphHtml = `<${tag}>`;
+        
+        currentParagraphLines.forEach((line, lineIndex) => {
+            if (lineIndex > 0) paragraphHtml += ' ';
+            
+            line.forEach((item, itemIndex) => {
+                if (itemIndex > 0) {
+                    const prevItem = line[itemIndex - 1];
+                    const prevWidth = prevItem.width || (prevItem.str.length * fontSize * 0.5); 
+                    const gap = item.transform[4] - (prevItem.transform[4] + prevWidth);
+                    if (gap > 5) paragraphHtml += ' ';
+                }
+                
+                let text = item.str
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                
+                if (item.fontName.toLowerCase().includes('bold') || item.fontName.includes('+b')) {
+                    text = `<b>${text}</b>`;
+                }
+                if (item.fontName.toLowerCase().includes('italic') || item.fontName.includes('+i')) {
+                    text = `<i>${text}</i>`;
+                }
+                
+                paragraphHtml += text;
+            });
+        });
+
+        paragraphHtml += `</${tag}>\n`;
+        html += paragraphHtml;
+        
+        currentParagraphLines = [];
+    };
+
+    lines.forEach(line => {
+        const lineY = line[0].transform[5];
+        const firstItem = line[0];
+        const fontSize = Math.sqrt((firstItem.transform[0] * firstItem.transform[0]));
+
+        // Decidir si fusionar con la línea anterior
+        let merge = false;
+        if (currentParagraphLines.length > 0) {
+            const yDiff = Math.abs(lastLineY - lineY);
+            // Si la distancia es razonable para ser la misma sección de texto (ej. 1.5x tamaño fuente)
+            // Y el tamaño de fuente es similar
+            if (yDiff < fontSize * 1.8 && Math.abs(fontSize - lastLineFontSize) < 2) {
+                merge = true;
+            }
+        }
+
+        if (!merge) {
+            flushParagraph();
+        }
+        
+        currentParagraphLines.push(line);
+        lastLineY = lineY;
+        lastLineFontSize = fontSize;
+    });
+    flushParagraph(); // Flush final
+    
+    html += '<hr/>'; // Separador de página
+  }
+  
+  return html;
+}
