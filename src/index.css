@@ -82,3 +82,76 @@ body {
 .dark body {
     background-color: #0a192f;
 }
+
+/* React Colorful Styles */
+.react-colorful {
+  position: relative;
+  user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.react-colorful__saturation {
+  position: relative;
+  flex-grow: 1;
+  border-bottom: 12px solid transparent;
+  background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent);
+  cursor: crosshair;
+}
+
+.react-colorful__alpha-gradient,
+.react-colorful__saturation {
+  background-size: 100% 100%;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+}
+
+.react-colorful__alpha,
+.react-colorful__hue {
+  position: relative;
+  height: 24px;
+}
+
+.react-colorful__hue {
+  background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+}
+
+.react-colorful__alpha-gradient {
+  background-image: linear-gradient(90deg, transparent, currentColor);
+}
+
+.react-colorful__pointer {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  background-color: #fff;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.react-colorful__pointer-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.react-colorful__saturation-pointer {
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.react-colorful__alpha {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill-opacity=".05"><rect x="8" width="8" height="8"/><rect y="8" width="8" height="8"/></svg>');
+  background-size: 8px 8px;
+  background-position: 0 0, 8px 8px;
+}
+
+.react-colorful__interactive {
+  cursor: pointer;
+}

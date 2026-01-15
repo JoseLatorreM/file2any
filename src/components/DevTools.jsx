@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import * as XLSX from 'xlsx';
+import { HexColorPicker, RgbaColorPicker } from 'react-colorful';
 import { 
   Database, 
   Upload, 
@@ -15,7 +16,11 @@ import {
   Trash2,
   Table,
   FileCode,
-  Sparkles
+  Sparkles,
+  Search,
+  Flag,
+  Palette,
+  Pipette
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from './ui/use-toast';
@@ -42,6 +47,254 @@ const DevTools = () => {
   const [inputMode, setInputMode] = useState('paste'); // 'paste' or 'file'
   const [editableData, setEditableData] = useState(null); // For editable preview table
   const [editingCell, setEditingCell] = useState(null); // {row, col}
+
+  // RegEx Tester states
+  const [regexPattern, setRegexPattern] = useState('');
+  const [regexFlags, setRegexFlags] = useState({ g: true, i: false, m: false, s: false, u: false });
+  const [testText, setTestText] = useState('');
+  const [regexError, setRegexError] = useState(null);
+
+  // Color Picker states
+  const [color, setColor] = useState('#6366f1');
+  const [colorFormat, setColorFormat] = useState('hex'); // 'hex' or 'rgba'
+  const [copiedFormat, setCopiedFormat] = useState(null);
+
+  // RegEx Tester functions
+  const getFlagsString = () => {
+    return Object.entries(regexFlags)
+      .filter(([_, value]) => value)
+      .map(([flag, _]) => flag)
+      .join('');
+  };
+
+  const regexResults = useMemo(() => {
+    if (!regexPattern || !testText) {
+      setRegexError(null);
+      return { matches: [], groups: [], count: 0 };
+    }
+
+    try {
+      const flags = getFlagsString();
+      const regex = new RegExp(regexPattern, flags);
+      const matches = [];
+      const groups = [];
+      let match;
+
+      if (regexFlags.g) {
+        // Global flag - find all matches
+        const globalRegex = new RegExp(regexPattern, flags);
+        while ((match = globalRegex.exec(testText)) !== null) {
+          matches.push({
+            text: match[0],
+            index: match.index,
+            length: match[0].length,
+            groups: match.slice(1)
+          });
+          // Prevent infinite loop on zero-length matches
+          if (match.index === globalRegex.lastIndex) {
+            globalRegex.lastIndex++;
+          }
+        }
+      } else {
+        // Non-global - find first match
+        match = regex.exec(testText);
+        if (match) {
+          matches.push({
+            text: match[0],
+            index: match.index,
+            length: match[0].length,
+            groups: match.slice(1)
+          });
+        }
+      }
+
+      // Extract group information
+      if (matches.length > 0 && matches[0].groups.length > 0) {
+        matches[0].groups.forEach((group, index) => {
+          groups.push({
+            index: index + 1,
+            value: group
+          });
+        });
+      }
+
+      setRegexError(null);
+      return { matches, groups, count: matches.length };
+    } catch (error) {
+      setRegexError(error.message);
+      return { matches: [], groups: [], count: 0 };
+    }
+  }, [regexPattern, testText, regexFlags]);
+
+  const highlightMatches = () => {
+    if (!testText || regexResults.matches.length === 0) {
+      return testText;
+    }
+
+    const parts = [];
+    let lastIndex = 0;
+
+    regexResults.matches.forEach((match, i) => {
+      // Add text before match
+      if (match.index > lastIndex) {
+        parts.push({
+          text: testText.slice(lastIndex, match.index),
+          isMatch: false
+        });
+      }
+
+      // Add match
+      parts.push({
+        text: match.text,
+        isMatch: true,
+        matchIndex: i
+      });
+
+      lastIndex = match.index + match.length;
+    });
+
+    // Add remaining text
+    if (lastIndex < testText.length) {
+      parts.push({
+        text: testText.slice(lastIndex),
+        isMatch: false
+      });
+    }
+
+    return parts;
+  };
+
+  const commonPatterns = [
+    { name: 'Email', pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$', description: 'Valida direcciones de email' },
+    { name: 'URL', pattern: 'https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)', description: 'URLs HTTP/HTTPS' },
+    { name: 'Teléfono', pattern: '^\\+?[\\d\\s\\-()]{7,}$', description: 'Números de teléfono' },
+    { name: 'Fecha (YYYY-MM-DD)', pattern: '\\d{4}-\\d{2}-\\d{2}', description: 'Formato ISO' },
+    { name: 'Hora (HH:MM)', pattern: '([01]?[0-9]|2[0-3]):[0-5][0-9]', description: 'Formato 24h' },
+    { name: 'Código Hex', pattern: '#[0-9A-Fa-f]{6}', description: 'Colores hexadecimales' },
+    { name: 'IPv4', pattern: '\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b', description: 'Direcciones IP' },
+    { name: 'Números', pattern: '-?\\d+(\\.\\d+)?', description: 'Enteros y decimales' }
+  ];
+
+  // Color Picker functions
+  const hexToRgba = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16),
+      a: 1
+    } : { r: 99, g: 102, b: 241, a: 1 };
+  };
+
+  const rgbaToHex = (rgba) => {
+    return '#' + [rgba.r, rgba.g, rgba.b].map(x => {
+      const hex = Math.round(x).toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+  };
+
+  const rgbToHsl = (r, g, b) => {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0;
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+
+    return {
+      h: Math.round(h * 360),
+      s: Math.round(s * 100),
+      l: Math.round(l * 100)
+    };
+  };
+
+  const rgbToHsv = (r, g, b) => {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, v = max;
+    const d = max - min;
+    s = max === 0 ? 0 : d / max;
+
+    if (max === min) {
+      h = 0;
+    } else {
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+
+    return {
+      h: Math.round(h * 360),
+      s: Math.round(s * 100),
+      v: Math.round(v * 100)
+    };
+  };
+
+  const getCurrentRgba = () => {
+    if (typeof color === 'string') {
+      return hexToRgba(color);
+    }
+    return color;
+  };
+
+  const copyColorFormat = async (format, value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedFormat(format);
+      setTimeout(() => setCopiedFormat(null), 2000);
+      toast({
+        title: t('devTools.copied', 'Copiado'),
+        description: `${format} copiado al portapapeles`,
+      });
+    } catch (err) {
+      toast({
+        title: t('devTools.error', 'Error'),
+        description: t('devTools.copyFailed', 'No se pudo copiar'),
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const parseColorInput = (input) => {
+    const trimmed = input.trim();
+    
+    // HEX
+    if (/^#?[0-9A-Fa-f]{6}$/.test(trimmed)) {
+      const hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+      setColor(hex);
+      return true;
+    }
+    
+    // RGB/RGBA
+    const rgbMatch = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (rgbMatch) {
+      const rgba = {
+        r: parseInt(rgbMatch[1]),
+        g: parseInt(rgbMatch[2]),
+        b: parseInt(rgbMatch[3]),
+        a: rgbMatch[4] ? parseFloat(rgbMatch[4]) : 1
+      };
+      setColor(rgba);
+      return true;
+    }
+    
+    return false;
+  };
 
   // Parse tabular data (from Excel paste) or CSV
   const parseTabularData = (content) => {
@@ -555,7 +808,23 @@ const DevTools = () => {
           className="gap-2"
         >
           <Database className="w-4 h-4" />
-          CSV → SQL INSERT
+          CSV → SQL
+        </Button>
+        <Button
+          variant={selectedTool === 'color-picker' ? 'default' : 'outline'}
+          onClick={() => setSelectedTool('color-picker')}
+          className="gap-2"
+        >
+          <Palette className="w-4 h-4" />
+          {t('devTools.colorPicker', 'Color Picker')}
+        </Button>
+        <Button
+          variant={selectedTool === 'regex-tester' ? 'default' : 'outline'}
+          onClick={() => setSelectedTool('regex-tester')}
+          className="gap-2"
+        >
+          <Search className="w-4 h-4" />
+          {t('devTools.regexTester', 'RegEx Tester')}
         </Button>
         {/* Placeholder para futuras herramientas */}
         <Button
@@ -939,6 +1208,646 @@ const DevTools = () => {
               )}
             </motion.div>
           </div>
+        </div>
+      )}
+
+      {/* RegEx Tester Tool */}
+      {selectedTool === 'regex-tester' && (
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Left Column - Pattern & Text Input */}
+            <div className="space-y-4">
+              {/* Pattern Input */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-card rounded-xl border p-6"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Search className="w-5 h-5 text-violet-500" />
+                  <h3 className="text-lg font-semibold">{t('devTools.regexPattern', 'Expresión Regular')}</h3>
+                </div>
+
+                {/* Pattern Input */}
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl text-muted-foreground">/</span>
+                    <input
+                      type="text"
+                      value={regexPattern}
+                      onChange={(e) => setRegexPattern(e.target.value)}
+                      placeholder="tu[\\s-]?patrón[\\s-]?aquí"
+                      className="flex-1 px-3 py-2 rounded-lg border bg-background focus:ring-2 focus:ring-violet-500 outline-none font-mono text-sm"
+                    />
+                    <span className="text-2xl text-muted-foreground">/{getFlagsString()}</span>
+                  </div>
+                  
+                  {/* Flags */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <Flag className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground mr-2">Flags:</span>
+                    {Object.entries({ g: 'Global', i: 'Ignorar mayúsculas', m: 'Multiline', s: 'Dot all', u: 'Unicode' }).map(([flag, label]) => (
+                      <label key={flag} className="flex items-center gap-1 cursor-pointer text-xs">
+                        <input
+                          type="checkbox"
+                          checked={regexFlags[flag]}
+                          onChange={(e) => setRegexFlags({ ...regexFlags, [flag]: e.target.checked })}
+                          className="rounded border-gray-300 text-violet-500 focus:ring-violet-500"
+                        />
+                        <span className="font-mono font-bold">{flag}</span>
+                        <span className="text-muted-foreground">({label})</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Error Display */}
+                  {regexError && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 px-3 py-2 rounded-lg text-sm">
+                      <AlertCircle className="w-4 h-4 inline mr-2" />
+                      <strong>Error:</strong> {regexError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Common Patterns */}
+                <div className="mb-4">
+                  <div className="text-sm font-medium mb-2">Patrones Comunes:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {commonPatterns.map((pattern) => (
+                      <button
+                        key={pattern.name}
+                        onClick={() => {
+                          setRegexPattern(pattern.pattern);
+                          setRegexFlags({ g: true, i: false, m: false, s: false, u: false });
+                        }}
+                        className="px-2 py-1 text-xs rounded bg-muted hover:bg-muted-foreground/10 transition-colors"
+                        title={pattern.description}
+                      >
+                        {pattern.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Test Text Input */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 }}
+                className="bg-card rounded-xl border p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <FileCode className="w-5 h-5 text-violet-500" />
+                    <h3 className="text-lg font-semibold">{t('devTools.testText', 'Texto de Prueba')}</h3>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {regexResults.count} {regexResults.count === 1 ? 'coincidencia' : 'coincidencias'}
+                  </div>
+                </div>
+                <textarea
+                  value={testText}
+                  onChange={(e) => setTestText(e.target.value)}
+                  placeholder="Escribe o pega el texto donde quieres buscar coincidencias..."
+                  className="w-full min-h-[300px] px-3 py-2 rounded-lg border bg-background focus:ring-2 focus:ring-violet-500 outline-none resize-y font-mono text-sm"
+                />
+              </motion.div>
+            </div>
+
+            {/* Right Column - Results */}
+            <div className="space-y-4">
+              {/* Highlighted Results */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.15 }}
+                className="bg-card rounded-xl border overflow-hidden"
+              >
+                <div className="bg-muted/50 px-4 py-3 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-violet-500" />
+                    <h3 className="text-lg font-semibold">Resultados Resaltados</h3>
+                  </div>
+                  <div className="text-sm font-medium text-violet-600 dark:text-violet-400">
+                    {regexResults.count} match{regexResults.count !== 1 ? 'es' : ''}
+                  </div>
+                </div>
+                <div className="p-4 min-h-[300px] max-h-[400px] overflow-auto">
+                  {testText && regexPattern ? (
+                    <div className="font-mono text-sm whitespace-pre-wrap break-words">
+                      {highlightMatches().map((part, index) => (
+                        part.isMatch ? (
+                          <mark
+                            key={index}
+                            className="bg-yellow-300 dark:bg-yellow-600 text-foreground px-1 rounded"
+                          >
+                            {part.text}
+                          </mark>
+                        ) : (
+                          <span key={index}>{part.text}</span>
+                        )
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-muted-foreground py-16">
+                      <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
+                      <p className="text-center">
+                        Ingresa un patrón regex y texto para ver los resultados
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Match Details */}
+              {regexResults.matches.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-card rounded-xl border overflow-hidden"
+                >
+                  <div className="bg-muted/50 px-4 py-3 border-b flex items-center justify-between">
+                    <h4 className="font-semibold">Detalles de Coincidencias</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const matchesText = regexResults.matches.map((m, i) => 
+                            `Match ${i + 1}: "${m.text}" (posición: ${m.index})`
+                          ).join('\n');
+                          await navigator.clipboard.writeText(matchesText);
+                          toast({
+                            title: t('devTools.copied', 'Copiado'),
+                            description: 'Coincidencias copiadas al portapapeles',
+                          });
+                        } catch (err) {
+                          toast({
+                            title: t('devTools.error', 'Error'),
+                            description: t('devTools.copyFailed', 'No se pudo copiar'),
+                            variant: 'destructive'
+                          });
+                        }
+                      }}
+                      className="h-7 px-2"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="p-4 max-h-[250px] overflow-y-auto space-y-2">
+                    {regexResults.matches.map((match, index) => (
+                      <div key={index} className="bg-muted/30 rounded-lg p-3 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold text-violet-600 dark:text-violet-400">
+                            Match #{index + 1}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Posición: {match.index}
+                          </span>
+                        </div>
+                        <code className="block bg-background px-2 py-1 rounded font-mono text-xs break-all">
+                          {match.text}
+                        </code>
+                        {match.groups.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-border">
+                            <div className="text-xs text-muted-foreground mb-1">Grupos capturados:</div>
+                            {match.groups.map((group, gIndex) => (
+                              <div key={gIndex} className="text-xs ml-2">
+                                <span className="text-muted-foreground">Grupo {gIndex + 1}:</span>{' '}
+                                <code className="bg-background px-1 rounded">{group || '(vacío)'}</code>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Quick Guide */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-card rounded-xl border p-4"
+              >
+                <h4 className="font-semibold mb-2 text-sm">💡 Guía Rápida de RegEx</h4>
+                <div className="space-y-1 text-xs">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <div><code className="bg-muted px-1 rounded">.</code> - Cualquier carácter</div>
+                    <div><code className="bg-muted px-1 rounded">\d</code> - Dígito (0-9)</div>
+                    <div><code className="bg-muted px-1 rounded">\w</code> - Palabra (a-zA-Z0-9_)</div>
+                    <div><code className="bg-muted px-1 rounded">\s</code> - Espacio en blanco</div>
+                    <div><code className="bg-muted px-1 rounded">*</code> - 0 o más veces</div>
+                    <div><code className="bg-muted px-1 rounded">+</code> - 1 o más veces</div>
+                    <div><code className="bg-muted px-1 rounded">?</code> - 0 o 1 vez</div>
+                    <div><code className="bg-muted px-1 rounded">{'{'} n {'}'}</code> - Exactamente n veces</div>
+                    <div><code className="bg-muted px-1 rounded">[abc]</code> - a, b, o c</div>
+                    <div><code className="bg-muted px-1 rounded">[^abc]</code> - No a, b, ni c</div>
+                    <div><code className="bg-muted px-1 rounded">^</code> - Inicio de línea</div>
+                    <div><code className="bg-muted px-1 rounded">$</code> - Fin de línea</div>
+                    <div><code className="bg-muted px-1 rounded">()</code> - Grupo de captura</div>
+                    <div><code className="bg-muted px-1 rounded">|</code> - OR (uno u otro)</div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Color Picker & Converter Tool */}
+      {selectedTool === 'color-picker' && (
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid lg:grid-cols-2 gap-6"
+          >
+            {/* Left - Color Picker */}
+            <div className="space-y-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-card rounded-xl border p-6"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Pipette className="w-5 h-5 text-violet-500" />
+                  <h3 className="text-lg font-semibold">{t('devTools.pickColor', 'Selecciona un Color')}</h3>
+                </div>
+
+                {/* Color Format Toggle */}
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant={colorFormat === 'hex' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setColorFormat('hex')}
+                    className="flex-1"
+                  >
+                    HEX
+                  </Button>
+                  <Button
+                    variant={colorFormat === 'rgba' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setColorFormat('rgba')}
+                    className="flex-1"
+                  >
+                    RGBA
+                  </Button>
+                </div>
+
+                {/* Color Pickers */}
+                <div className="space-y-4">
+                  {colorFormat === 'hex' ? (
+                    <div className="space-y-3">
+                      <HexColorPicker 
+                        color={typeof color === 'string' ? color : rgbaToHex(color)} 
+                        onChange={(newColor) => setColor(newColor)}
+                        style={{ width: '100%', height: '200px' }}
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={typeof color === 'string' ? color : rgbaToHex(color)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (/^#[0-9A-Fa-f]{0,6}$/.test(val) || val === '') {
+                              setColor(val || '#000000');
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 rounded-lg border bg-background focus:ring-2 focus:ring-violet-500 outline-none font-mono"
+                          placeholder="#6366f1"
+                        />
+                        <div 
+                          className="w-12 h-10 rounded-lg border-2 border-muted-foreground/20 shadow-inner"
+                          style={{ backgroundColor: typeof color === 'string' ? color : rgbaToHex(color) }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <RgbaColorPicker 
+                        color={typeof color === 'string' ? hexToRgba(color) : color} 
+                        onChange={(newColor) => setColor(newColor)}
+                        style={{ width: '100%', height: '200px' }}
+                      />
+                      <div className="grid grid-cols-4 gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground block mb-1">R</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="255"
+                            value={getCurrentRgba().r}
+                            onChange={(e) => {
+                              const rgba = getCurrentRgba();
+                              setColor({ ...rgba, r: Math.min(255, Math.max(0, parseInt(e.target.value) || 0)) });
+                            }}
+                            className="w-full px-2 py-1.5 rounded border bg-background text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground block mb-1">G</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="255"
+                            value={getCurrentRgba().g}
+                            onChange={(e) => {
+                              const rgba = getCurrentRgba();
+                              setColor({ ...rgba, g: Math.min(255, Math.max(0, parseInt(e.target.value) || 0)) });
+                            }}
+                            className="w-full px-2 py-1.5 rounded border bg-background text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground block mb-1">B</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="255"
+                            value={getCurrentRgba().b}
+                            onChange={(e) => {
+                              const rgba = getCurrentRgba();
+                              setColor({ ...rgba, b: Math.min(255, Math.max(0, parseInt(e.target.value) || 0)) });
+                            }}
+                            className="w-full px-2 py-1.5 rounded border bg-background text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground block mb-1">A</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={getCurrentRgba().a}
+                            onChange={(e) => {
+                              const rgba = getCurrentRgba();
+                              setColor({ ...rgba, a: Math.min(1, Math.max(0, parseFloat(e.target.value) || 0)) });
+                            }}
+                            className="w-full px-2 py-1.5 rounded border bg-background text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div 
+                        className="w-full h-12 rounded-lg border-2 border-muted-foreground/20 shadow-inner"
+                        style={{ 
+                          backgroundColor: typeof color === 'string' 
+                            ? color 
+                            : `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Color Input */}
+                <div className="mt-4">
+                  <label className="text-sm text-muted-foreground block mb-2">
+                    {t('devTools.pasteColor', 'O pega un color:')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: #6366f1 o rgb(99, 102, 241)"
+                    onPaste={(e) => {
+                      setTimeout(() => {
+                        const input = e.target.value;
+                        parseColorInput(input);
+                      }, 0);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border bg-background focus:ring-2 focus:ring-violet-500 outline-none text-sm"
+                  />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Right - Color Formats */}
+            <div className="space-y-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 }}
+                className="bg-card rounded-xl border overflow-hidden"
+              >
+                <div className="bg-muted/50 px-4 py-3 border-b flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-violet-500" />
+                  <h3 className="text-lg font-semibold">{t('devTools.colorFormats', 'Formatos de Color')}</h3>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {(() => {
+                    const rgba = getCurrentRgba();
+                    const hexValue = typeof color === 'string' ? color : rgbaToHex(color);
+                    const hsl = rgbToHsl(rgba.r, rgba.g, rgba.b);
+                    const hsv = rgbToHsv(rgba.r, rgba.g, rgba.b);
+
+                    return (
+                      <>
+                        {/* HEX */}
+                        <div className="bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">HEX</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyColorFormat('HEX', hexValue.toUpperCase())}
+                              className="h-7 px-2"
+                            >
+                              {copiedFormat === 'HEX' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-sm font-mono bg-background px-3 py-2 rounded block">
+                            {hexValue.toUpperCase()}
+                          </code>
+                        </div>
+
+                        {/* RGB */}
+                        <div className="bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">RGB</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyColorFormat('RGB', `rgb(${rgba.r}, ${rgba.g}, ${rgba.b})`)}
+                              className="h-7 px-2"
+                            >
+                              {copiedFormat === 'RGB' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-sm font-mono bg-background px-3 py-2 rounded block">
+                            rgb({rgba.r}, {rgba.g}, {rgba.b})
+                          </code>
+                        </div>
+
+                        {/* RGBA */}
+                        <div className="bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">RGBA</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyColorFormat('RGBA', `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`)}
+                              className="h-7 px-2"
+                            >
+                              {copiedFormat === 'RGBA' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-sm font-mono bg-background px-3 py-2 rounded block">
+                            rgba({rgba.r}, {rgba.g}, {rgba.b}, {rgba.a})
+                          </code>
+                        </div>
+
+                        {/* HSL */}
+                        <div className="bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">HSL</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyColorFormat('HSL', `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`)}
+                              className="h-7 px-2"
+                            >
+                              {copiedFormat === 'HSL' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-sm font-mono bg-background px-3 py-2 rounded block">
+                            hsl({hsl.h}, {hsl.s}%, {hsl.l}%)
+                          </code>
+                        </div>
+
+                        {/* HSV */}
+                        <div className="bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">HSV</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyColorFormat('HSV', `hsv(${hsv.h}, ${hsv.s}%, ${hsv.v}%)`)}
+                              className="h-7 px-2"
+                            >
+                              {copiedFormat === 'HSV' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-sm font-mono bg-background px-3 py-2 rounded block">
+                            hsv({hsv.h}, {hsv.s}%, {hsv.v}%)
+                          </code>
+                        </div>
+
+                        {/* CSS Variable */}
+                        <div className="bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">CSS Variable</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyColorFormat('CSS', `--color-primary: ${hexValue};`)}
+                              className="h-7 px-2"
+                            >
+                              {copiedFormat === 'CSS' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-sm font-mono bg-background px-3 py-2 rounded block">
+                            --color-primary: {hexValue};
+                          </code>
+                        </div>
+
+                        {/* Tailwind */}
+                        <div className="bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-muted-foreground">Tailwind</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyColorFormat('Tailwind', `bg-[${hexValue}]`)}
+                              className="h-7 px-2"
+                            >
+                              {copiedFormat === 'Tailwind' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-sm font-mono bg-background px-3 py-2 rounded block">
+                            bg-[{hexValue}]
+                          </code>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </motion.div>
+
+              {/* Color Preview Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-card rounded-xl border overflow-hidden"
+              >
+                <div 
+                  className="h-32 relative"
+                  style={{ backgroundColor: typeof color === 'string' ? color : rgbaToHex(color) }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div 
+                        className="text-2xl font-bold drop-shadow-lg"
+                        style={{ 
+                          color: (() => {
+                            const rgba = getCurrentRgba();
+                            return rgbToHsl(rgba.r, rgba.g, rgba.b).l > 50 ? '#000' : '#fff';
+                          })()
+                        }}
+                      >
+                        {(typeof color === 'string' ? color : rgbaToHex(color)).toUpperCase()}
+                      </div>
+                      <div 
+                        className="text-sm drop-shadow"
+                        style={{ 
+                          color: (() => {
+                            const rgba = getCurrentRgba();
+                            return rgbToHsl(rgba.r, rgba.g, rgba.b).l > 50 ? '#000' : '#fff';
+                          })(),
+                          opacity: 0.8
+                        }}
+                      >
+                        RGB: {getCurrentRgba().r}, {getCurrentRgba().g}, {getCurrentRgba().b}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>
