@@ -6,6 +6,7 @@ import Header from './components/Header';
 import FileConverter from './components/FileConverter';
 import BatchImageConverter from './components/BatchImageConverter';
 import FloorPlanEditor from './components/FloorPlanEditor';
+import DevTools from './components/DevTools';
 // import YouTubeDownloader from './components/YouTubeDownloader'; // Deshabilitado temporalmente - YouTube bloquea IPs de datacenter
 import Features from './components/Features';
 import SupportedFormats from './components/SupportedFormats';
@@ -13,7 +14,7 @@ import CommentsSection from './components/CommentsSection';
 import Footer from './components/Footer';
 import BuyMeACoffeeWidget from './components/BuyMeACoffeeWidget';
 import { Toaster } from './components/ui/toaster';
-import { Loader2, FileText, Image, Home } from 'lucide-react';
+import { Loader2, FileText, Image, Home, Code2 } from 'lucide-react';
 import SummerEffect from './components/SummerEffect';
 // import { Youtube } from 'lucide-react'; // Deshabilitado temporalmente
 
@@ -21,7 +22,8 @@ function App() {
   const { t } = useTranslation();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('single'); // 'single' or 'batch' (youtube deshabilitado)
+  const [mainView, setMainView] = useState('usertools'); // 'usertools' or 'devtools'
+  const [activeTab, setActiveTab] = useState('single'); // 'single', 'batch', 'floorplan' (for usertools)
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -65,13 +67,15 @@ function App() {
 
       {!loading && (
         <div className={`min-h-screen bg-background font-sans antialiased ${theme}`}>
-          <Header theme={theme} setTheme={setTheme} />
+          <Header theme={theme} setTheme={setTheme} mainView={mainView} setMainView={setMainView} />
           <main>
-            {/* Tabs for switching between single and batch conversion */}
+            {/* Tabs for switching between tools */}
             <section className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
               <div className="max-w-6xl mx-auto">
-                <div className="flex justify-center mb-8">
-                  <div className="inline-flex flex-col sm:flex-row rounded-lg bg-muted p-1 shadow-md w-full sm:w-auto max-w-sm sm:max-w-none">
+                {/* User Tools Tabs */}
+                {mainView === 'usertools' && (
+                  <div className="flex justify-center mb-8">
+                    <div className="inline-flex flex-col sm:flex-row rounded-lg bg-muted p-1 shadow-md w-full sm:w-auto max-w-sm sm:max-w-none">
                     <button
                       onClick={() => setActiveTab('single')}
                       className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-md font-medium transition-all text-sm sm:text-base ${
@@ -118,12 +122,13 @@ function App() {
                       <span className="whitespace-nowrap">YouTube Downloader</span>
                     </button>
                     */}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Content based on active tab */}
+                {/* Content based on main view and active tab */}
                 <AnimatePresence mode="wait">
-                  {activeTab === 'single' ? (
+                  {mainView === 'usertools' && activeTab === 'single' ? (
                     <motion.div
                       key="single"
                       initial={{ opacity: 0, y: 20 }}
@@ -133,7 +138,7 @@ function App() {
                     >
                       <FileConverter />
                     </motion.div>
-                  ) : activeTab === 'batch' ? (
+                  ) : mainView === 'usertools' && activeTab === 'batch' ? (
                     <motion.div
                       key="batch"
                       initial={{ opacity: 0, y: 20 }}
@@ -143,7 +148,7 @@ function App() {
                     >
                       <BatchImageConverter />
                     </motion.div>
-                  ) : activeTab === 'floorplan' ? (
+                  ) : mainView === 'usertools' && activeTab === 'floorplan' ? (
                     <motion.div
                       key="floorplan"
                       initial={{ opacity: 0, y: 20 }}
@@ -152,6 +157,16 @@ function App() {
                       transition={{ duration: 0.3 }}
                     >
                       <FloorPlanEditor />
+                    </motion.div>
+                  ) : mainView === 'devtools' ? (
+                    <motion.div
+                      key="devtools"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <DevTools />
                     </motion.div>
                   ) : null}
                   {/* YouTube Downloader deshabilitado temporalmente
